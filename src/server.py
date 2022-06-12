@@ -42,7 +42,9 @@ def save_id(id):
                     return
 
 
-def log_to_file(self, prompt, completion, logprobs, temp):
+def log_to_file(data, logprobs, completion):
+    prompt = data["text"]
+    temp = data["temp"]
     # make id
     id = str(int(time.time()))
     # save json, preserving newlines
@@ -63,11 +65,6 @@ def log_to_file(self, prompt, completion, logprobs, temp):
         )
 
 
-@app.route("/")
-def root():
-    return state.make_html()
-
-
 @app.route("/submit_prompt", methods=["POST"])
 def submit_prompt():
     print("submit_prompt")
@@ -75,8 +72,8 @@ def submit_prompt():
     data = flask.request.get_json()
     print(data)
     prompt = data["text"]
-    temp = data["temp"]
-    n_tokens = data["n_tokens"]
+    temp = float(data["temp"])
+    n_tokens = int(data["n_tokens"])
     # send prompt to openai
     response = openai.Completion.create(
         engine="text-davinci-002",
@@ -88,44 +85,20 @@ def submit_prompt():
     completion = response.choices[0].text
     logprobs = response.choices[0].logprobs
     print(completion)
-    # log_to_file(prompt=prompt, completion=completion, logprobs=logprobs))
+    log_to_file(data, logprobs, completion)
     return completion
 
-
-@app.route("/change_tokens")
-def change_tokens():
-    n_tokens = flask.request.args["new_n_tokens"]
-    state.n_tokens = int(n_tokens)
-    return state.make_html()
-
-
-@app.route("/change_temp")
-def change_temp():
-    temp = flask.request.args["new_temp"]
-    state.temp = int(temp)
-    return state.make_html()
-
-
-@app.route("/change_newlines")
-def toggle_newlines():
-    state.show_newlines = not state.show_newlines
-    return state.make_html()
-
-
-@app.route("/remove_row")
-def remove_row():
-    id = flask.request.args["id"]
-    archive(id)
-    return state.make_html()
-
-
-@app.route("/save")
-def save():
-    id = flask.request.args["id"]
-    print("saving", id)
-    save_id(id)
-    return state.make_html()
-
+@app.route("/get_logs")
+def get_logs():
+    with open("log.txt", "r") as f:
+        data = f.read()
+    logs = []
+    for line in data.split("\n")[-2:]:
+        if line:
+            logs.append(line)
+    logs.reverse()
+    print(logs)
+    return json.dumps(logs) 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
