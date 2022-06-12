@@ -29,19 +29,6 @@ def archive(id):
         f.write(json.dumps(line_to_remove) + "\n")
 
 
-def save_id(id):
-    with open("log.txt", "r") as f:
-        data = f.read()
-
-    with open("saved.txt", "a") as f:
-        for line in data.split("\n"):
-            if line:
-                line = json.loads(line)
-                if int(line["time_id"]) == int(id):
-                    f.write(json.dumps(line) + "\n")
-                    return
-
-
 def log_to_file(data, logprobs, completion):
     prompt = data["text"]
     temp = data["temp"]
@@ -88,24 +75,51 @@ def submit_prompt():
     log_to_file(data, logprobs, completion)
     return completion
 
+
+@app.route("/save_log", methods=["POST"])
+def save_log():
+    print("save_log")
+    # get json from request
+    data = flask.request.get_json()
+    with open("saved.txt", "a") as f:
+        f.write(json.dumps(data) + "\n")
+    return "saved"
+
+
 @app.route("/get_logs")
 def get_logs():
     with open("log.txt", "r") as f:
         data = f.read()
     logs = []
-    for line in data.split("\n")[-2:]:
+    for line in data.split("\n")[-4:]:
         if line:
-            logs.append(line)
+            logs.append(json.loads(line))
     logs.reverse()
     print(logs)
-    return json.dumps(logs) 
+    return json.dumps(logs)
+
+
+@app.route("/archive_log", methods=["POST"])
+def archive_log():
+    print("archive_log")
+    # get string from request
+    data = flask.request.get_json()
+
+    print(data)
+    id = data["id"]
+    archive(id)
+    return "archived"
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--public", action="store_true")
     parser.add_argument("--debug", action="store_true")
+
+    # add argument for port
+    parser.add_argument("--port", type=int, default=5004)
     args = parser.parse_args()
-    port = int(os.environ.get("PORT", 5004))
+    port = args.port
     aws = True
     push_to_aws = True
     if args.debug:

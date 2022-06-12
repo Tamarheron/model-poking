@@ -1,6 +1,7 @@
 
 import './App.css';
 import React, { useEffect, useState } from 'react';
+import { completion } from 'yargs';
 
 
 
@@ -40,22 +41,59 @@ async function get_logs_from_server() {
   return logs
 }
 
-const Logs = (logs) => {
-  console.log(logs[0]);
-
-  console.log(logs[0]);
-  console.log(JSON.parse(logs[0]));
+const Logs = ({ logs, remove_log_by_id, newlines }) => {
+  // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
+  var handle_save = (data) => {
+    return () => {
+
+      const headers = { 'Content-Type': 'application/json' }
+      const args = {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(data)
+      }
+      fetch('/save_log', args)
+    }
+  }
+  var handle_archive = (id) => {
+    return () => {
+      console.log('archiving ID ' + id);
+      const data = { "id": id }
+      const headers = { 'Content-Type': 'application/json' }
+      const args = {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(data)
+      }
+      fetch('/archive_log', args)
+      // update logs
+      remove_log_by_id(id)
+    }
+  }
+
   return (
     //map over logs and display them
 
+
     logs.map((data) =>
+      // var prompt = data["prompt"];
+      // var completion = data["completion"];
+      // if (newlines) {
+      //   prompt = prompt.replace(/\n/g, '<br>');
+      //   completion = completion.replace(/\n/g, '<br>');
+      // };
       <tr key={data.time_id}>
         <td>
-          {data.prompt}
+          {prompt}
         </td>
-        <td>{data.completion}</td>
-        <td>T=<br />{data.temp} <br /> <br /> <br />  <br /><br /> Show<br />  </td>
+        <td>{completion}</td>
+        <td>T=<br />{data.temp} <br /> <br />
+          <br />  <br />
+          <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
+          <br /> <br />
+          <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="archive" />
+        </td>
 
       </tr>
 
@@ -63,7 +101,14 @@ const Logs = (logs) => {
   );
 }
 
-const PromptArea = () => {
+const LogButton = (args) => {
+  console.log(args);
+  console.log(typeof (fun));
+  return (
+    <button onClick={args.fun}>{args.label}</button>
+  )
+}
+const PromptArea = ({ update_logs }) => {
 
   const [text, setText] = useState('');
   const [temp, setTemp] = useState(0);
@@ -81,9 +126,11 @@ const PromptArea = () => {
     api_call(text, temp, n_tokens).then(completion => {
       setText(text + completion);
       textbox.style.backgroundColor = "white";
+      // update logs
+      console.log(typeof (update_logs))
+      update_logs(text, completion, temp, n_tokens);
     });
 
-    // make lookedup_button white to indicate that it is done
 
     return
   }
@@ -116,6 +163,8 @@ const PromptArea = () => {
   );
 
 }
+
+
 function App() {
   const [logs, setLogs] = useState([]);
   useEffect(() => {
@@ -124,12 +173,33 @@ function App() {
     })
 
   }, []);
+  const add_log = (text, completion, temp, n_tokens) => {
+    const new_log = {
+      "prompt": text,
+      "completion": completion,
+      "temp": temp,
+      "n_tokens": n_tokens,
+      "time_id": Date.now()
+    }
+    setLogs([new_log, ...logs])
+  }
+  const remove_log = (id) => {
+    console.log((logs.length));
+    console.log(logs);
+    console.log('id');
 
+    console.log(id);
+    const new_logs = logs.filter(log => log.time_id !== id)
+    setLogs(new_logs)
+    console.log((logs.length));
+
+  }
+  console.log(typeof (update_logs));
 
 
   return (
     <div className="App">
-      <PromptArea />
+      <PromptArea key="prompt_area" update_logs={add_log} />
       <div className="container">
         <table className="logs">
           <thead>
@@ -146,8 +216,8 @@ function App() {
               </td>
             </tr>
           </thead>
-          <tbody>
-            {Logs(logs)}
+          <tbody >
+            <Logs key='logs' logs={logs} remove_log_by_id={remove_log} />
           </tbody>
         </table>
       </div>
