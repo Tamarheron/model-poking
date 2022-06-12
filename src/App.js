@@ -1,7 +1,7 @@
 
 import './App.css';
 import React, { useEffect, useState } from 'react';
-import { completion } from 'yargs';
+import { middleware } from 'yargs';
 
 
 
@@ -42,8 +42,8 @@ async function get_logs_from_server() {
 }
 
 const Logs = ({ logs, remove_log_by_id, newlines }) => {
-  // console.log(JSON.parse(logs[0]));
-  // console.log(logs[0]["prompt"]);
+
+  console.log(newlines)
   var handle_save = (data) => {
     return () => {
 
@@ -76,13 +76,13 @@ const Logs = ({ logs, remove_log_by_id, newlines }) => {
     //map over logs and display them
 
 
-    logs.map((data) =>
-      // var prompt = data["prompt"];
-      // var completion = data["completion"];
-      // if (newlines) {
-      //   prompt = prompt.replace(/\n/g, '<br>');
-      //   completion = completion.replace(/\n/g, '<br>');
-      // };
+    logs.map((data) => {
+      var prompt = data["prompt"];
+      var completion = data["completion"];
+      if (newlines) {
+        prompt = prompt.replace(/\n/g, '<br>');
+        completion = completion.replace(/\n/g, '<br>');
+      };
       <tr key={data.time_id}>
         <td>
           {prompt}
@@ -97,10 +97,10 @@ const Logs = ({ logs, remove_log_by_id, newlines }) => {
 
       </tr>
 
-    )
+
+    })
   );
 }
-
 const LogButton = (args) => {
   console.log(args);
   console.log(typeof (fun));
@@ -108,12 +108,11 @@ const LogButton = (args) => {
     <button onClick={args.fun}>{args.label}</button>
   )
 }
-const PromptArea = ({ update_logs }) => {
+const PromptArea = ({ update_logs, setNewlines }) => {
 
   const [text, setText] = useState('');
   const [temp, setTemp] = useState(0);
   const [n_tokens, setNTokens] = useState(50);
-  const [newlines, setNewlines] = useState(false);
 
 
   function get_completion(text, button) {
@@ -167,6 +166,7 @@ const PromptArea = ({ update_logs }) => {
 
 function App() {
   const [logs, setLogs] = useState([]);
+  const [newlines, setNewlines] = useState(false);
   useEffect(() => {
     get_logs_from_server().then(loaded_logs => {
       setLogs(loaded_logs)
@@ -184,22 +184,19 @@ function App() {
     setLogs([new_log, ...logs])
   }
   const remove_log = (id) => {
-    console.log((logs.length));
-    console.log(logs);
-    console.log('id');
-
-    console.log(id);
     const new_logs = logs.filter(log => log.time_id !== id)
     setLogs(new_logs)
-    console.log((logs.length));
+
 
   }
-  console.log(typeof (update_logs));
+
+
+
 
 
   return (
     <div className="App">
-      <PromptArea key="prompt_area" update_logs={add_log} />
+      <PromptArea key="prompt_area" update_logs={add_log} setNewlines={setNewlines} />
       <div className="container">
         <table className="logs">
           <thead>
@@ -217,7 +214,7 @@ function App() {
             </tr>
           </thead>
           <tbody >
-            <Logs key='logs' logs={logs} remove_log_by_id={remove_log} />
+            <Logs key='logs' logs={logs} remove_log_by_id={remove_log} newlines={newlines} />
           </tbody>
         </table>
       </div>
