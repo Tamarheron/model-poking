@@ -1,7 +1,6 @@
 
 import './App.css';
 import React, { useEffect, useState } from 'react';
-import { middleware } from 'yargs';
 
 
 
@@ -41,9 +40,9 @@ async function get_logs_from_server() {
   return logs
 }
 
-const Logs = ({ logs, remove_log_by_id, newlines }) => {
-
-  console.log(newlines)
+const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
+  // console.log(JSON.parse(logs[0]));
+  // console.log(logs[0]["prompt"]);
   var handle_save = (data) => {
     return () => {
 
@@ -71,36 +70,39 @@ const Logs = ({ logs, remove_log_by_id, newlines }) => {
       remove_log_by_id(id)
     }
   }
+  var logs_to_display = logs.map((log) => {
+    return log
+  });
 
-  return (
-    //map over logs and display them
+  const jsx = logs_to_display.map((data) =>
+    // const prompt = data["prompt"];
+    // const completion = data["completion"];
+
+    // if (newlines) {
+    //   prompt = prompt.replace(/\n/g, '<br>');
+    //   completion = completion.replace(/\n/g, '<br>');
+    // };
+
+    <tr key={data.time_id} style={{ whiteSpace: white_space_style }}>
+      <td>
+        {data.prompt}
+      </td>
+      <td>{data.completion}</td>
+      <td>T=<br />{data.temp} <br /> <br />
+        <br />  <br />
+        <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
+        <br /> <br />
+        <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="archive" />
+      </td>
+
+    </tr>
 
 
-    logs.map((data) => {
-      var prompt = data["prompt"];
-      var completion = data["completion"];
-      if (newlines) {
-        prompt = prompt.replace(/\n/g, '<br>');
-        completion = completion.replace(/\n/g, '<br>');
-      };
-      <tr key={data.time_id}>
-        <td>
-          {prompt}
-        </td>
-        <td>{completion}</td>
-        <td>T=<br />{data.temp} <br /> <br />
-          <br />  <br />
-          <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
-          <br /> <br />
-          <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="archive" />
-        </td>
-
-      </tr>
-
-
-    })
   );
+  console.log('jsx ' + jsx);
+  return (jsx);
 }
+
 const LogButton = (args) => {
   console.log(args);
   console.log(typeof (fun));
@@ -108,15 +110,16 @@ const LogButton = (args) => {
     <button onClick={args.fun}>{args.label}</button>
   )
 }
-const PromptArea = ({ update_logs, setNewlines }) => {
+const PromptArea = ({ update_logs, newlines, set_newlines }) => {
 
   const [text, setText] = useState('');
   const [temp, setTemp] = useState(0);
   const [n_tokens, setNTokens] = useState(50);
 
 
-  function get_completion(text, button) {
-    // make button red  to indicate that it is being pressed
+
+  function get_completion(text) {
+
     const textbox = document.getElementById("prompt_textarea");
 
     textbox.style.backgroundColor = "#f0f0f5";
@@ -134,8 +137,6 @@ const PromptArea = ({ update_logs, setNewlines }) => {
     return
   }
 
-
-
   return (
     <div className='prompt_area'>
       <div className="settings_bar">
@@ -148,7 +149,7 @@ const PromptArea = ({ update_logs, setNewlines }) => {
           <label htmlFor="n_tokens">NTokens</label>
         </div>
         <div className='setting'>
-          <input key="change_newlines" type="checkbox" value={newlines} onChange={(e) => setNewlines(e.target.value)} />
+          <input key="change_newlines" type="checkbox" value={newlines} onChange={(e) => set_newlines(!newlines)} />
           <label htmlFor="newlines">Show Newlines</label>
         </div>
       </div>
@@ -173,6 +174,9 @@ function App() {
     })
 
   }, []);
+  const set_newlines = (newlines) => {
+    setNewlines(newlines)
+  }
   const add_log = (text, completion, temp, n_tokens) => {
     const new_log = {
       "prompt": text,
@@ -187,16 +191,16 @@ function App() {
     const new_logs = logs.filter(log => log.time_id !== id)
     setLogs(new_logs)
 
-
   }
-
-
-
-
+  console.log(newlines);
+  var white_space_style = 'normal'
+  if (newlines) {
+    white_space_style = 'pre-line'
+  }
 
   return (
     <div className="App">
-      <PromptArea key="prompt_area" update_logs={add_log} setNewlines={setNewlines} />
+      <PromptArea key="prompt_area" update_logs={add_log} newlines={newlines} set_newlines={set_newlines} />
       <div className="container">
         <table className="logs">
           <thead>
@@ -214,7 +218,7 @@ function App() {
             </tr>
           </thead>
           <tbody >
-            <Logs key='logs' logs={logs} remove_log_by_id={remove_log} newlines={newlines} />
+            <Logs key='logs' logs={logs} remove_log_by_id={remove_log} white_space_style={white_space_style} />
           </tbody>
         </table>
       </div>
