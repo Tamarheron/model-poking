@@ -1,11 +1,15 @@
 # To use:
-In the project directory, you run:
+In the project directory, run:
+
 npm start
+
 and
+
 python src/server.py
+
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-# Template docs from Create React
+## Template docs from Create React below here
 
 ##Getting Started with Create React App
 
