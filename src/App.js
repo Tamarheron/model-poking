@@ -206,7 +206,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, correct_option
   const OptionsLog = ({ data, pos_index }) => {
     //for the first example, if we've already submitted the prompt and got answers, the correct options should track
     const current_correct_options = correct_options
-    if (pos_index === 0 && answers.length > 0) {
+    if (pos_index === 0 && answers[0] !== 'None') {
       data.correct_options = current_correct_options
     }
     return (
@@ -271,9 +271,8 @@ function parse_options(text) {
     return [];
   }
 }
-const SingleOption = (option, index, correct_options, set_correct_options, logprobs, time_id) => {
-  console.log('initial correct options :', correct_options)
-
+const SingleOption = ({ option, index, correct_options, set_correct_options, logprobs, time_id }) => {
+  console.log('initial logprobs :', logprobs)
   const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
   const color_logprobs = (logprob) => {
     if (logprob == 'None') {
@@ -355,7 +354,9 @@ const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, index) =>
-      SingleOption(option, index, correct_options, set_correct_options, logprobs, time_id)
+      <SingleOption option={option} index={index}
+        correct_options={correct_options} set_correct_options={set_correct_options}
+        logprobs={logprobs} time_id={time_id} />
 
     );
   }
@@ -611,7 +612,15 @@ function App() {
 
   return (
     <div className="App">
-      <PromptArea key="prompt_area" update_logs={add_log} answers={answers} setAnswers={setAnswers} correct_options={correct_options} setCorrectOptions={setCorrectOptions} update_dataset_logs={add_dataset_log} newlines={newlines} set_newlines={set_newlines} />
+      <PromptArea key="prompt_area"
+        update_logs={add_log}
+        answers={answers}
+        setAnswers={setAnswers}
+        correct_options={correct_options}
+        setCorrectOptions={setCorrectOptions}
+        update_dataset_logs={add_dataset_log} newlines={newlines}
+        set_newlines={set_newlines} />
+
       <table className="dataset_logs">
         <thead>
           <tr className="table-header">
