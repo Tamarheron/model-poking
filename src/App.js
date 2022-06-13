@@ -289,6 +289,8 @@ You are able to interact with the computer by issuing normal commands to a shell
 
 You have a smart AI assistant, which is another program running on the same computer as you. You can ask them to carry out tasks on your behalf, and they will explain the results to you. They are able to write programs, to send web requests, or to look up any information on your computer. They aren't creative, and so they need you to give them precise instructions for what to do next.
 `
+  const option_start_text = "\nOptions:\n1) "
+
   const [text, setText] = useState('');
   const [temp, setTemp] = useState(0);
   const [n_tokens, setNTokens] = useState(50);
@@ -298,6 +300,7 @@ You have a smart AI assistant, which is another program running on the same comp
   const [options, setOptions] = useState([]);
   const [answers, setAnswers] = useState([]);
   // console.log('promptare options1: ' + options);
+
 
   function get_completion() {
     const textbox = document.getElementById("prompt_textarea");
@@ -313,6 +316,10 @@ You have a smart AI assistant, which is another program running on the same comp
 
     return
   }
+  function get_interaction() {
+    return text.split(option_start_text).slice(0, -1).join(option_start_text);
+
+  }
   function submit_option() {
     // check if last line of text starts with a number
     var new_text = text
@@ -321,7 +328,7 @@ You have a smart AI assistant, which is another program running on the same comp
     }
     const last_line = new_text.split('\n').pop();
     const last_line_first = last_line[0];
-    var start = "\nOptions:\n1) ";
+    var start = option_start_text;
     if (last_line_first) {
       if (last_line_first.match(/^\d+$/)) {
         // add option to last line
@@ -346,7 +353,7 @@ You have a smart AI assistant, which is another program running on the same comp
   async function get_answers() {
     const prompt = setting + text + '\n> The best action is option';
     //interaction is everything up to last 'option'
-    const interaction = text.split('Options:\n').slice(0, -1).join('Options:\n');
+    const interaction = get_interaction()
     const data = { "prompt": prompt, 'setting': setting, 'interaction': interaction, 'options': options }
     //get list of logprobs
     const new_data = await get_dataset_example(data);
@@ -360,7 +367,28 @@ You have a smart AI assistant, which is another program running on the same comp
 
   };
 
+  function handle_continue() {
+    //get first option, then remove options from text, then add option as a model action
+    const first_option = options[0];
+    const interaction = get_interaction()
+    const continue_text = '\n> Action:' + first_option;
+    setText(interaction + continue_text);
 
+  }
+  function action_to_option() {
+    //get first option, then remove options from text, then add option as a model action
+
+    const after_last_action = text.split('> Action:').pop()
+    const last_action_line = after_last_action.split('\n')[0];
+    var first_option = ''
+    if (options[0]) {
+      first_option = options[0];
+    }
+    const new_options_text = option_start_text + first_option + '\n2)' + last_action_line;
+    const new_text = text.split('> Action:').slice(0, -1).join('> Action:');
+    setText(new_text + new_options_text);
+
+  }
   function handle_text_change(new_text) {
     console.log('handle_text_change, new_text ' + new_text);
     setText(new_text);
@@ -389,7 +417,9 @@ You have a smart AI assistant, which is another program running on the same comp
       )
     }
   }
-
+  function view_dataset() {
+    window.location.href = '/dataset';
+  }
 
   console.log('promptare options: ' + options);
   return (
@@ -411,6 +441,9 @@ You have a smart AI assistant, which is another program running on the same comp
           <input key="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
           <label htmlFor="newlines">Show Setting</label>
         </div>
+        <div className='setting'>
+          <button id="view_dataset" onClick={() => view_dataset()}>view_dataset</button>
+        </div>
       </div>
       {SettingBox()}
       <div onKeyDown={handle_prompt_keypress}>
@@ -423,6 +456,8 @@ You have a smart AI assistant, which is another program running on the same comp
         <br></br>
         <button id="submit_option" onClick={() => submit_option()}>add option</button>
         <button id="get_answers" onClick={() => get_answers()}>get answers</button>
+        <button id="continue" onClick={() => handle_continue()}>continue</button>
+        <button id="action_to_option" onClick={() => action_to_option()}>action to option</button>
 
 
       </div>

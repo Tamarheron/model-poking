@@ -63,7 +63,7 @@ def get_logs_from_file(dataset=False):
     with open(filename, "r") as f:
         data = f.read()
     logs = []
-    for line in data.split("\n")[-4:]:
+    for line in data.split("\n"):
         if line:
             logs.append(json.loads(line))
     logs.reverse()
