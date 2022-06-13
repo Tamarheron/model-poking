@@ -32,7 +32,7 @@ async function get_logprobs(data) {
     headers: headers,
     body: JSON.stringify(data)
   }
-  const response = fetch('/get_answer', args).then(
+  const response = fetch('/submit_options', args).then(
     function (response) {
       const logprobs = response.json()
       console.log('get_logprobs, answer: ' + logprobs);
@@ -42,16 +42,21 @@ async function get_logprobs(data) {
   return response;
   // return { '0': 0.5, '1': 0.5 };
 }
-async function server_save_dataset_log(data) {
+async function server_save(id, dataset) {
   // send text, temperature to Flask backend
-  console.log('saving example', data);
+  console.log('saving example', id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify(data)
+    body: JSON.stringify({ 'id': id })
   }
-  fetch('/save_dataset_log', args)
+
+  var path = '/save_log'
+  if (dataset) {
+    path = '/save_dataset_log'
+  }
+  fetch(path, args)
 }
 
 function handle_prompt_keypress(e) {
@@ -94,16 +99,10 @@ async function get_dataset_logs_from_server() {
 const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
-  var handle_save = (data) => {
+  var handle_save = (id) => {
     return () => {
-
-      const headers = { 'Content-Type': 'application/json' }
-      const args = {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-      }
-      fetch('/save_log', args)
+      console.log('saving ID ' + id);
+      server_save(id, false);
     }
   }
   var handle_archive = (id) => {
@@ -155,17 +154,10 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
 const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
-  var handle_save = (data) => {
-    data.saved = true;
+  var handle_save = (id) => {
     return () => {
-
-      const headers = { 'Content-Type': 'application/json' }
-      const args = {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-      }
-      fetch('/save_example', args)
+      console.log('saving ID ' + id);
+      server_save(id, true);
     }
   }
   var handle_archive = (id) => {
@@ -346,16 +338,6 @@ You have a smart AI assistant, which is another program running on the same comp
     //update_dataset_logs(newdata);
 
   };
-  function save_dataset_log() {
-    const prompt = setting + text + '\n> The best action is option';
-    //interaction is everything up to last 'option'
-    const interaction = text.split('Options:\n').slice(0, -1).join('Options:\n');
-    const data = { "prompt": prompt, 'setting': setting, 'interaction': interaction, 'options': options }
-    //get list of logprobs
-    server_save_dataset_log(data);
-
-  };
-
 
 
   function handle_text_change(new_text) {
@@ -420,7 +402,6 @@ You have a smart AI assistant, which is another program running on the same comp
         <br></br>
         <button id="submit_option" onClick={() => submit_option()}>add option</button>
         <button id="get_answers" onClick={() => get_answers()}>get answers</button>
-        <button id="save_example" onClick={() => save_example()}>Save example</button>
 
 
       </div>

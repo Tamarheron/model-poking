@@ -31,12 +31,12 @@ def archive(id, dataset=False):
         f.write(json.dumps(line_to_remove) + "\n")
 
 
-def log_to_file(data):
-
+def log_to_file(data, dataset=False):
+    filename = "dataset.txt" if dataset else "log.txt"
     # save json, preserving newlines
     data["prompt"].replace("\n", "\\n")
     data["completion"].replace("\n", "\\n")
-    with open("log.txt", "a") as f:
+    with open(filename, "a") as f:
         f.write(
             json.dumps(
                 data,
@@ -45,12 +45,30 @@ def log_to_file(data):
         )
 
 
-def log_answer(data, logprobs, save_to_dataset=False):
-    with open("answered_qs.txt", "a") as f:
-        f.write(json.dumps(data) + "\n")
-    if save_to_dataset:
-        with open("dataset.txt", "a") as f:
-            f.write(json.dumps(data) + "\n")
+def add_to_saved(id, dataset=False):
+    filename = "dataset" if dataset else "log"
+    with open(filename + ".txt", "r") as f:
+        data = f.read()
+    filename += "_saved.txt"
+    with open(filename, "a") as f:
+        for line in data.split("\n"):
+            if line:
+                line = json.loads(line)
+                if int(line["time_id"]) == int(id):
+                    f.write(json.dumps(line) + "\n")
+
+
+def get_logs(dataset=False):
+    filename = "dataset.txt" if dataset else "log.txt"
+    with open("log.txt", "r") as f:
+        data = f.read()
+    logs = []
+    for line in data.split("\n")[-4:]:
+        if line:
+            logs.append(json.loads(line))
+    logs.reverse()
+    print(logs)
+    return json.dumps(logs)
 
 
 @app.route("/submit_prompt", methods=["POST"])
@@ -80,9 +98,9 @@ def submit_prompt():
     log_to_file(data)
 
 
-@app.route("/get_answer", methods=["POST"])
+@app.route("/submit_options", methods=["POST"])
 def get_answer():
-    print("submit_prompt")
+    print("submit_options")
     # get json from request
     data = flask.request.get_json()
     print(data)
@@ -101,31 +119,18 @@ def get_answer():
     data["answer_logprobs"] = logprobs
     data["time_id"] = str(int(time.time()))
 
-    log_answer(data)
+    log_to_file(data, dataset=True)
 
     return json.dumps(data)
 
 
-@app.route("/save_example", methods=["POST"])
-def save_example():
-    print("save example")
-    # get json from request
+@app.route("/save_dataset_log", methods=["POST"])
+def save_dataset_log():
+    print("save_dataset_log")
+    # get id from request
     data = flask.request.get_json()
-    prompt = data["prompt"]
-    # send prompt to openai
-    response = openai.Completion.create(
-        engine="text-davinci-002",
-        prompt=prompt,
-        max_tokens=1,
-        temperature=0,
-        logprobs=5,
-    )
-    logprobs = response.choices[0].logprobs.top_logprobs
-    print(logprobs)
-    answer_logprobs = logprobs[0]
-    print(answer_logprobs)
 
-    log_answer(data, answer_logprobs, save_to_dataset=True)
+    add_to_saved(data.id, dataset=True)
     return "saved"
 
 
@@ -134,35 +139,19 @@ def save_log():
     print("save_log")
     # get json from request
     data = flask.request.get_json()
-    with open("saved.txt", "a") as f:
-        f.write(json.dumps(data) + "\n")
+
+    add_to_saved(data.id)
     return "saved"
 
 
 @app.route("/get_logs")
 def get_logs():
-    with open("log.txt", "r") as f:
-        data = f.read()
-    logs = []
-    for line in data.split("\n")[-4:]:
-        if line:
-            logs.append(json.loads(line))
-    logs.reverse()
-    print(logs)
-    return json.dumps(logs)
+    return get_logs()
 
 
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
-    with open("dataset.txt", "r") as f:
-        data = f.read()
-    logs = []
-    for line in data.split("\n")[-4:]:
-        if line:
-            logs.append(json.loads(line))
-    logs.reverse()
-    print(logs)
-    return json.dumps(logs)
+    return get_logs(dataset=True)
 
 
 @app.route("/archive_log", methods=["POST"])
@@ -182,7 +171,6 @@ def archive_dataset_log():
     print("archive_dataset_log")
     # get string from request
     data = flask.request.get_json()
-
     print(data)
     id = data["id"]
     archive(id, dataset=True)
