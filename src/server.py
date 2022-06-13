@@ -58,7 +58,7 @@ def add_to_saved(id, dataset=False):
                     f.write(json.dumps(line) + "\n")
 
 
-def get_logs(dataset=False):
+def get_logs_from_file(dataset=False):
     filename = "dataset.txt" if dataset else "log.txt"
     with open("log.txt", "r") as f:
         data = f.read()
@@ -116,8 +116,9 @@ def get_answer():
     logprobs = response.choices[0].logprobs.top_logprobs
 
     answer_logprobs = logprobs[0]
-    data["answer_logprobs"] = logprobs
+    data["answer_logprobs"] = answer_logprobs
     data["time_id"] = str(int(time.time()))
+    data["completion"] = response.choices[0].text
 
     log_to_file(data, dataset=True)
 
@@ -146,12 +147,12 @@ def save_log():
 
 @app.route("/get_logs")
 def get_logs():
-    return get_logs()
+    return get_logs_from_file()
 
 
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
-    return get_logs(dataset=True)
+    return get_logs_from_file(dataset=True)
 
 
 @app.route("/archive_log", methods=["POST"])

@@ -24,7 +24,7 @@ function api_call(text, temp = 0, n_tokens = 50,) {
   return new_data;
   // fetch('/submit_prompt')
 }
-async function get_logprobs(data) {
+async function get_dataset_example(data) {
   // send text, temperature to Flask backend
   const headers = { 'Content-Type': 'application/json' }
   const args = {
@@ -34,9 +34,9 @@ async function get_logprobs(data) {
   }
   const response = fetch('/submit_options', args).then(
     function (response) {
-      const logprobs = response.json()
-      console.log('get_logprobs, answer: ' + logprobs);
-      return logprobs
+      const dataset_example = response.json()
+      console.log('get_dataset_example, dataset_example: ' + dataset_example);
+      return dataset_example
     }
   )
   return response;
@@ -55,6 +55,22 @@ async function server_save(id, dataset) {
   var path = '/save_log'
   if (dataset) {
     path = '/save_dataset_log'
+  }
+  fetch(path, args)
+}
+async function server_archive(id, dataset) {
+  // send text, temperature to Flask backend
+  console.log('archiving example', id);
+  const headers = { 'Content-Type': 'application/json' }
+  const args = {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({ 'id': id })
+  }
+
+  var path = '/archive_log'
+  if (dataset) {
+    path = '/archive_dataset_log'
   }
   fetch(path, args)
 }
@@ -108,14 +124,7 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   var handle_archive = (id) => {
     return () => {
       console.log('archiving ID ' + id);
-      const data = { "id": id }
-      const headers = { 'Content-Type': 'application/json' }
-      const args = {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-      }
-      fetch('/archive_log', args)
+      server_archive(id, false);
       // update logs
       remove_log_by_id(id)
     }
@@ -162,21 +171,13 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
   }
   var handle_archive = (id) => {
     return () => {
-      console.log('archiving ID ' + id);
-      const data = { "id": id }
-      const headers = { 'Content-Type': 'application/json' }
-      const args = {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-      }
-      fetch('/archive_dataset_log', args)
+      server_archive(id, true);
       // update logs
       remove_log_by_id(id, 'dataset')
     }
   }
 
-  console.log('data ', data);
+  console.log('dataset_data ', data);
   const OptionsLog = ({ data }) => {
     return (
 
@@ -184,7 +185,10 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
         <td>
           {data.interaction}
         </td>
-        <OptionsAnswersList key={'options' + data.time_id} option_list={data.options} answers={data.answer_logprobs} />
+        <td>
+          <OptionsAnswersList key={'options' + data.time_id} option_list={data.options} answers={data.answer_logprobs} />
+        </td>
+
         <td>
           <br />  <br />
           <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
@@ -329,12 +333,13 @@ You have a smart AI assistant, which is another program running on the same comp
     const interaction = text.split('Options:\n').slice(0, -1).join('Options:\n');
     const data = { "prompt": prompt, 'setting': setting, 'interaction': interaction, 'options': options }
     //get list of logprobs
-    const logprobs = await get_logprobs(data);
-    console.log('get_answers returnning logprobs: ' + logprobs);
+    const new_data = await get_dataset_example(data);
+    const logprobs = new_data["answer_logprobs"];
+    console.log('get_answers returning logprobs: ' + logprobs);
     console.log(logprobs);
 
     setAnswers(logprobs);
-    const newdata = { ...data, 'answer_logprobs': logprobs };
+
     //update_dataset_logs(newdata);
 
   };
