@@ -116,9 +116,13 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
   var handle_save = (id) => {
-    return () => {
+    return (e) => {
       console.log('saving ID ' + id);
       server_save(id, false);
+      let el = e.target
+      el.disabled = true;
+      el.innerHTML = 'Saved'
+      el.backgroundColor = '#00ff00'
     }
   }
   var handle_archive = (id) => {
@@ -164,9 +168,13 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
   var handle_save = (id) => {
-    return () => {
+    return (e) => {
       console.log('saving ID ' + id);
       server_save(id, true);
+      let el = e.target
+      el.disabled = true;
+      el.innerHTML = 'Saved'
+      el.backgroundColor = '#00ff00'
     }
   }
   var handle_archive = (id) => {
@@ -442,7 +450,7 @@ You have a smart AI assistant, which is another program running on the same comp
           <label htmlFor="newlines">Show Setting</label>
         </div>
         <div className='setting'>
-          <button id="view_dataset" onClick={() => view_dataset()}>view_dataset</button>
+          <button id="view_dataset" onClick={() => view_dataset()}>view_dataset (todo)</button>
         </div>
       </div>
       {SettingBox()}
