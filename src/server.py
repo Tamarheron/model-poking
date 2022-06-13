@@ -1,8 +1,6 @@
-from sqlite3 import Timestamp
-from click import prompt
 import flask
 import json
-from flask import Flask, render_template, Markup
+from flask import Flask
 import os
 import argparse
 import openai
