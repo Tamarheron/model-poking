@@ -151,7 +151,7 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
         <br />  <br />
         <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
         <br /> <br />
-        <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="archive" />
+        <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="rmv" />
       </td>
 
     </tr>
@@ -181,23 +181,22 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
   const OptionsLog = ({ data }) => {
     return (
 
-      <tr key={data.time_id} id="dataset_log_row" style={{ whiteSpace: white_space_style }}>
-        <td>
+      <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: white_space_style }}>
+        <td className="dataset_log_options_td">
           {data.interaction}
         </td>
-        <td id="dataset_log_options_td" style={{ "padding": "0px" }}>
-          <table key="options_log" id="options_log">
+        <td className="dataset_log_options_td" style={{ "padding": "0px" }}>
+          <table key="options_log" className="options_log">
             <tbody>
               <OptionsAnswersList key={'options' + data.time_id} option_list={data.options} answers={data.answer_logprobs} />
             </tbody>
           </table>
         </td>
 
-        <td>
-          <br />  <br />
+        <td className="dataset_log_options_td">
           <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
-          <br /> <br />
-          <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="archive" />
+          <br></br>
+          <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="rmv" />
         </td>
 
       </tr >
@@ -255,13 +254,26 @@ const OptionsAnswersList = ({ option_list, answers }) => {
   }
   )
   var jsx = '';
+  //function to map logprobs to colors
+  const color_logprobs = (logprob) => {
+    if (logprob == 'None') {
+      return 'white';
+    } else {
+      //turn logprob into a probability
+      const prob = Math.exp(logprob)
+      //turn probability into a color
+      const color = 255 - Math.floor(prob * 70);
+      return 'rgb(' + (color) + ',' + color + ',255)';
+    }
+  }
+
   if (option_list.length > 0) {
     jsx = option_list.map((option, index) =>
-      <tr key={index}>
-        <td>{index + 1 + ') '}</td>
-        <td>{option} </td>
-        <td>{logprobs[index]}</td>
-      </tr>
+      <tr key={index} className='individual_option_row' style={{ backgroundColor: color_logprobs(logprobs[index]) }} >
+        <td className='index_td'>{index + 1}</td>
+        <td className="option_text_td">{option} </td>
+        <td className='logprob_td'>{Math.exp(logprobs[index]).toFixed(2)}</td>
+      </tr >
     );
   }
   console.log('jsx ', jsx);

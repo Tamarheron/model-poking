@@ -106,12 +106,37 @@ input[type="number"] {
 
 .options_log {
   width: 100%;
-  display: flex;
-  margin-bottom: 0px;
+  margin: 0px;
   vertical-align: middle;
   padding: 0px
 }
 
-td.dataset_log_options_td {
-  padding: 0px;
+.dataset_log_options_td {
+  padding: 3px;
+}
+
+
+.logprob_td,
+.index_td {
+  text-align: center;
+  padding: 3px;
+  border: 0px;
+}
+
+.index_td {
+  width: 0.4cm;
+}
+
+.logprob_td {
+  width: 0.8cm;
+}
+
+.individual_option_row {
+  text-align: left;
+  border-collapse: collapse;
+}
+
+.option_text_td {
+  padding: 3px;
+  border: 0px;
 }
