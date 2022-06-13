@@ -112,6 +112,19 @@ async function get_dataset_logs_from_server() {
   return logs
 }
 
+async function server_update_option_correct(new_correct_options, time_id) {
+  console.log('updating option correct', time_id, new_correct_options);
+  const headers = { 'Content-Type': 'application/json' }
+  const args = {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({ 'time_id': time_id, 'new_correct_options': new_correct_options })
+  }
+
+  fetch('/update_correct_options', args)
+
+}
+
 const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
@@ -136,7 +149,10 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   var logs_to_display = logs.map((log) => {
     return log
   });
-  logs_to_display.reverse();
+  //sort by time_id
+  logs_to_display.sort((b, a) => {
+    return a.time_id - b.time_id
+  })
 
   const jsx = logs_to_display.map((data) =>
     // const prompt = data["prompt"];
@@ -186,7 +202,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
     }
   }
 
-  console.log('dataset_data ', data);
+  console.log('dataset_data ', data.map(d => d['correct_options']));
   const OptionsLog = ({ data }) => {
     return (
 
@@ -197,7 +213,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
         <td className="dataset_log_options_td" style={{ "padding": "0px" }}>
           <table key="options_log" className="options_log">
             <tbody>
-              <OptionsAnswersList key={'options' + data.time_id} option_list={data.options} answers={data.answer_logprobs} />
+              <OptionsAnswersList key={'options' + data.time_id} option_list={data.options} answers={data.answer_logprobs} correct_options={data.correct_options} time_id={data.time_id} />
             </tbody>
           </table>
         </td>
@@ -215,7 +231,9 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
   var logs_to_display = data.map((log) => {
     return log
   });
-  logs_to_display.reverse();
+  logs_to_display.sort((b, a) => {
+    return a.time_id - b.time_id
+  })
   const jsx = logs_to_display.map((log) => {
     console.log('single data ', log);
     return (
@@ -248,8 +266,64 @@ function parse_options(text) {
     return [];
   }
 }
+const SingleOption = (option, index, correct_options, set_correct_options, logprobs, time_id) => {
+  console.log('initial correct options :', correct_options)
 
-const OptionsAnswersList = ({ option_list, answers }) => {
+  const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
+  const color_logprobs = (logprob) => {
+    if (logprob == 'None') {
+      return 'white';
+    } else {
+      //turn logprob into a probability
+      const prob = Math.exp(logprob)
+      //turn probability into a color
+      const color = 255 - Math.floor(prob * 70);
+      return 'rgb(' + (color) + ',' + color + ',255)';
+    }
+  }
+  const color_by_correct = (option_correct) => {
+    if (option_correct) {
+      return 'lightgreen'
+    } else {
+      return 'lightpink'
+    }
+  }
+  var new_correct_options = []
+
+  const handle_click = () => {
+    console.log('ind', index)
+    console.log('thisOptionCorrect', thisOptionCorrect)
+    if (thisOptionCorrect) {
+      new_correct_options = correct_options.filter(i => i != index);
+
+    } else {
+      new_correct_options = [...correct_options, index]
+      console.log('updating current correct options to:', new_correct_options)
+      console.log('updating current correct, index', index)
+      console.log('correct options', correct_options)
+
+
+    }
+    if (time_id !== 'None') {
+      console.log('passing time_id ', time_id)
+      server_update_option_correct(new_correct_options, time_id)
+    } else {
+      console.log('updating current correct options to:', new_correct_options)
+      set_correct_options(new_correct_options)
+
+    }
+    setThisOptionCorrect(!thisOptionCorrect)
+  }
+
+  return (
+    <tr key={option + '_' + index} className='individual_option_row' style={{ backgroundColor: color_logprobs(logprobs[index]) }} >
+      <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }} onClick={() => handle_click()}>{index + 1}</td>
+      <td className="option_text_td">{option} </td>
+      <td className='logprob_td'>{Math.exp(logprobs[index]).toFixed(2)}</td>
+    </tr >);
+
+}
+const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct_options, time_id }) => {
   console.log('OAL2, answers: ', answers);
   console.log(answers[1])
 
@@ -268,25 +342,13 @@ const OptionsAnswersList = ({ option_list, answers }) => {
   )
   var jsx = '';
   //function to map logprobs to colors
-  const color_logprobs = (logprob) => {
-    if (logprob == 'None') {
-      return 'white';
-    } else {
-      //turn logprob into a probability
-      const prob = Math.exp(logprob)
-      //turn probability into a color
-      const color = 255 - Math.floor(prob * 70);
-      return 'rgb(' + (color) + ',' + color + ',255)';
-    }
-  }
+
+
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, index) =>
-      <tr key={index} className='individual_option_row' style={{ backgroundColor: color_logprobs(logprobs[index]) }} >
-        <td className='index_td'>{index + 1}</td>
-        <td className="option_text_td">{option} </td>
-        <td className='logprob_td'>{Math.exp(logprobs[index]).toFixed(2)}</td>
-      </tr >
+      SingleOption(option, index, correct_options, set_correct_options, logprobs, time_id)
+
     );
   }
   console.log('jsx ', jsx);
@@ -312,6 +374,7 @@ You have a smart AI assistant, which is another program running on the same comp
   const [show_setting, setShowSetting] = useState(false);
   const [options, setOptions] = useState([]);
   const [answers, setAnswers] = useState([]);
+  const [correct_options, setCorrectOptions] = useState([0])
   // console.log('promptare options1: ' + options);
 
 
@@ -367,7 +430,7 @@ You have a smart AI assistant, which is another program running on the same comp
     const prompt = setting + text + '\n> The best action is option';
     //interaction is everything up to last 'option'
     const interaction = get_interaction()
-    const data = { "prompt": prompt, 'setting': setting, 'interaction': interaction, 'options': options }
+    const data = { "prompt": prompt, 'setting': setting, 'interaction': interaction, 'options': options, 'correct_options': correct_options }
     //get list of logprobs
     const new_data = await get_dataset_example(data);
     const logprobs = new_data["answer_logprobs"];
@@ -483,7 +546,7 @@ You have a smart AI assistant, which is another program running on the same comp
       <div>
         <table>
           <tbody>
-            <OptionsAnswersList option_list={options} answers={answers} />
+            <OptionsAnswersList option_list={options} answers={answers} time_id={'None'} correct_options={correct_options} set_correct_options={(arr) => setCorrectOptions(arr)} />
           </tbody>
         </table>
       </div>

@@ -1,3 +1,4 @@
+from imaplib import IMAP4_stream
 import flask
 import json
 from flask import Flask
@@ -63,7 +64,12 @@ def get_logs_from_file(dataset=False):
     logs = []
     for line in data.split("\n"):
         if line:
-            logs.append(json.loads(line))
+            item = json.loads(line)
+            if dataset:
+                if not "correct_options" in item:
+                    item["correct_options"] = [0]
+            logs.append(item)
+
     logs.reverse()
     print(logs)
     return json.dumps(logs)
@@ -133,6 +139,29 @@ def save_dataset_log():
 
     add_to_saved(data["time_id"], dataset=True)
     return "saved"
+
+
+@app.route("/update_correct_options", methods=["POST"])
+def update_correct_options():
+    print("update_correct_options")
+    # get id from request
+    data = flask.request.get_json()
+    print(data)
+
+    id = data["time_id"]
+    new_correct = data["new_correct_options"]
+    for file in ["dataset", "archived_dataset_log", "dataset_saved"]:
+        with open(file + ".txt", "r") as f:
+            filedata = f.read()
+        with open(file + ".txt", "w") as f:
+            for line in filedata.split("\n"):
+                if line:
+                    line = json.loads(line)
+                    if line:
+                        if int(line["time_id"]) == int(id):
+                            line["correct_options"] = new_correct
+                        f.write(json.dumps(line) + "\n")
+    return "updated"
 
 
 @app.route("/save_log", methods=["POST"])
