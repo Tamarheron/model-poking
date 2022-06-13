@@ -1,1 +1,1 @@
-web: python server.py --public
+web: python src/server.py --public
