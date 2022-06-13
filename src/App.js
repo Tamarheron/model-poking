@@ -42,14 +42,14 @@ async function get_dataset_example(data) {
   return response;
   // return { '0': 0.5, '1': 0.5 };
 }
-async function server_save(id, dataset) {
+async function server_save(id, dataset = false) {
   // send text, temperature to Flask backend
   console.log('saving example', id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({ 'id': id })
+    body: JSON.stringify({ 'time_id': id })
   }
 
   var path = '/save_log'
@@ -58,14 +58,14 @@ async function server_save(id, dataset) {
   }
   fetch(path, args)
 }
-async function server_archive(id, dataset) {
+async function server_archive(id, dataset = false) {
   // send text, temperature to Flask backend
   console.log('archiving example', id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({ 'id': id })
+    body: JSON.stringify({ 'time_id': id })
   }
 
   var path = '/archive_log'
@@ -143,15 +143,15 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
     // };
 
     <tr key={data.time_id} style={{ whiteSpace: white_space_style }}>
-      <td>
+      <td className='prompt_td'>
         {data.prompt}
       </td>
       <td>{data.completion}</td>
       <td>T=<br />{data.temp} <br /> <br />
         <br />  <br />
-        <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
+        <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
         <br /> <br />
-        <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="rmv" />
+        <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
       </td>
 
     </tr>
@@ -194,9 +194,9 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
         </td>
 
         <td className="dataset_log_options_td">
-          <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
+          <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
           <br></br>
-          <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="rmv" />
+          <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
         </td>
 
       </tr >

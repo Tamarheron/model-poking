@@ -13,8 +13,8 @@ app = Flask(__name__)
 
 def archive(id, dataset=False):
     from_file = "dataset.txt" if dataset else "log.txt"
-    to_file = "archived_qs.txt" if dataset else "archived_log.txt"
-    with open("log.txt", "r") as f:
+    to_file = "archived_dataset_log.txt" if dataset else "archived_log.txt"
+    with open(from_file, "r") as f:
         data = f.read()
 
     line_to_remove = None
@@ -131,8 +131,9 @@ def save_dataset_log():
     print("save_dataset_log")
     # get id from request
     data = flask.request.get_json()
+    print(data)
 
-    add_to_saved(data.id, dataset=True)
+    add_to_saved(data["time_id"], dataset=True)
     return "saved"
 
 
@@ -142,7 +143,7 @@ def save_log():
     # get json from request
     data = flask.request.get_json()
 
-    add_to_saved(data.id)
+    add_to_saved(data["time_id"])
     return "saved"
 
 
@@ -163,7 +164,7 @@ def archive_log():
     data = flask.request.get_json()
 
     print(data)
-    id = data["id"]
+    id = data["time_id"]
     archive(id)
     return "archived"
 
@@ -174,7 +175,7 @@ def archive_dataset_log():
     # get string from request
     data = flask.request.get_json()
     print(data)
-    id = data["id"]
+    id = data["time_id"]
     archive(id, dataset=True)
     return "archived"
 
