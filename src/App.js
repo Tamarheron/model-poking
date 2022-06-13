@@ -181,12 +181,16 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
   const OptionsLog = ({ data }) => {
     return (
 
-      <tr key={data.time_id} style={{ whiteSpace: white_space_style }}>
+      <tr key={data.time_id} id="dataset_log_row" style={{ whiteSpace: white_space_style }}>
         <td>
           {data.interaction}
         </td>
-        <td>
-          <OptionsAnswersList key={'options' + data.time_id} option_list={data.options} answers={data.answer_logprobs} />
+        <td id="dataset_log_options_td" style={{ "padding": "0px" }}>
+          <table key="options_log" id="options_log">
+            <tbody>
+              <OptionsAnswersList key={'options' + data.time_id} option_list={data.options} answers={data.answer_logprobs} />
+            </tbody>
+          </table>
         </td>
 
         <td>
@@ -196,7 +200,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
           <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="archive" />
         </td>
 
-      </tr>
+      </tr >
 
     );
   }
@@ -339,7 +343,7 @@ You have a smart AI assistant, which is another program running on the same comp
     console.log(logprobs);
 
     setAnswers(logprobs);
-
+    update_dataset_logs(new_data);
     //update_dataset_logs(newdata);
 
   };
