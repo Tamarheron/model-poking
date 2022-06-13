@@ -136,6 +136,7 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   var logs_to_display = logs.map((log) => {
     return log
   });
+  logs_to_display.reverse();
 
   const jsx = logs_to_display.map((data) =>
     // const prompt = data["prompt"];
@@ -211,7 +212,11 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style }) => {
 
     );
   }
-  const jsx = data.map((log) => {
+  var logs_to_display = data.map((log) => {
+    return log
+  });
+  logs_to_display.reverse();
+  const jsx = logs_to_display.map((log) => {
     console.log('single data ', log);
     return (
       <OptionsLog key={data.time_id} data={log} />
@@ -397,7 +402,8 @@ You have a smart AI assistant, which is another program running on the same comp
     setText(new_text + new_options_text);
 
   }
-  function handle_text_change(new_text) {
+  function handle_text_change(textarea) {
+    const new_text = textarea.value;
     console.log('handle_text_change, new_text ' + new_text);
     setText(new_text);
     if (new_text !== '') {
@@ -407,13 +413,18 @@ You have a smart AI assistant, which is another program running on the same comp
         setOptions(new_options);
       }
     }
+    //adjust height of textarea to fit text
+    //calculate number of lines in text
+    textarea.rows = Math.floor((new_text.split('\n').length * 1.2) + 1);
+
+
   }
 
   const SettingBox = () => {
     if (show_setting) {
       return (
         <div >
-          <textarea key="setting_textarea" id="setting_textarea" rows="20" value={setting} onChange={(e) => setSetting(e.target.value)} />
+          <textarea key="setting_textarea" id="setting_textarea" minRows="20" value={setting} onChange={(e) => setSetting(e.target.value)} />
           <br></br>
         </div>
       )
@@ -455,7 +466,7 @@ You have a smart AI assistant, which is another program running on the same comp
       </div>
       {SettingBox()}
       <div onKeyDown={handle_prompt_keypress}>
-        <textarea key="prompt_textarea" id="prompt_textarea" rows="20" value={text} onChange={(e) => handle_text_change(e.target.value)} />
+        <textarea key="prompt_textarea" className='prompt_textarea' id="prompt_textarea" value={text} onChange={(e) => handle_text_change(e.target)} />
         <br></br>
         <button id="submit_prompt" onClick={() => get_completion()}>get completion</button>
       </div>

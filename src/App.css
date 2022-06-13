@@ -113,6 +113,7 @@ input[type="number"] {
 
 .dataset_log_options_td {
   padding: 3px;
+  text-align: left;
 }
 
 
@@ -144,4 +145,11 @@ input[type="number"] {
 .prompt_td {
   padding: 5px;
   text-align: left;
+}
+
+.prompt_textarea {
+  width: 100%;
+  max-height: 30cm;
+  min-height: 10cm;
+
 }
