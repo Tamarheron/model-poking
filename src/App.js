@@ -15,9 +15,9 @@ function api_call(text, temp = 0, n_tokens = 50,) {
     body: JSON.stringify(data)
   }
   const new_data = fetch('/submit_prompt', args).then(
-    function (completion) {
+    function (data) {
 
-      return new_data.json()
+      return data.json()
 
     }
   )

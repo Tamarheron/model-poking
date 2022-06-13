@@ -60,7 +60,7 @@ def add_to_saved(id, dataset=False):
 
 def get_logs_from_file(dataset=False):
     filename = "dataset.txt" if dataset else "log.txt"
-    with open("log.txt", "r") as f:
+    with open(filename, "r") as f:
         data = f.read()
     logs = []
     for line in data.split("\n")[-4:]:
@@ -96,6 +96,7 @@ def submit_prompt():
     data["logprobs"] = logprobs
     data["time_id"] = time.time()
     log_to_file(data)
+    return flask.jsonify(data)
 
 
 @app.route("/submit_options", methods=["POST"])
