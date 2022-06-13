@@ -24,13 +24,48 @@ function api_call(text, temp = 0, n_tokens = 50,) {
   return completion;
   // fetch('/submit_prompt')
 }
+async function get_logprobs(data) {
+  // send text, temperature to Flask backend
+  const headers = { 'Content-Type': 'application/json' }
+  const args = {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(data)
+  }
+  const response = fetch('/get_answer', args).then(
+    function (response) {
+      const logprobs = response.json()
+      console.log('get_logprobs, answer: ' + logprobs);
+      return logprobs
+    }
+  )
+  return response;
+  // return { '0': 0.5, '1': 0.5 };
+}
 
-
-function get_completion_on_ctrl_enter(e) {
+function handle_prompt_keypress(e) {
   if (e.key === 'Enter' && e.ctrlKey) {  // if enter is pressed and ctrl is held
     const button = document.getElementById("submit_prompt");
     button.click();
 
+  } else if (e.key === 'ArrowDown' && e.ctrlKey) {
+    //move focus to option area
+    const option_area = document.getElementById("option_textarea");
+    option_area.focus();
+  }
+}
+function handle_option_keypress(e) {
+  if (e.key === 'Enter' && !e.ctrlKey) {  // if enter is pressed and ctrl is held
+    // stop default behavior
+    e.preventDefault();
+    const button = document.getElementById("submit_option");
+
+    button.click();
+
+  } else if (e.key === 'ArrowUp' && e.ctrlKey) {
+    //move focus to option area
+    const option_area = document.getElementById("prompt_textarea");
+    option_area.focus();
   }
 }
 
@@ -97,48 +132,179 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
 
     </tr>
 
-
   );
   console.log('jsx ' + jsx);
   return (jsx);
 }
 
 const LogButton = (args) => {
-  console.log(args);
-  console.log(typeof (fun));
   return (
     <button onClick={args.fun}>{args.label}</button>
   )
 }
+function parse_options(text) {
+
+  const option_text = String(text.split('Options:\n').slice(-1))
+  const option_lines = option_text.split('\n');
+  const options = option_lines.map((option_line) => {
+    return option_line.slice(2,);
+  });
+  console.log('parsed options ' + options);
+  return options;
+}
+
+const OptionsAnswersList = ({ option_list, get_answers }) => {
+  console.log('OAL, options: ' + option_list);
+
+  const [answers, setAnswers] = useState([]);
+
+  useEffect(() => {
+    console.log('useEffect, options: ' + option_list);
+
+    const fetchAnswers = async () => {
+      const answers = await get_answers();
+      setAnswers(answers);
+      console.log('fetchanswers: ' + answers);
+      console.log(answers)
+
+    }
+    if (option_list.length > 1) {
+      fetchAnswers();
+    }
+  }, []);
+
+  console.log('OAL2, options: ', option_list, typeof option_list, option_list.length);
+
+
+  var display_answers = [];
+  if (answers !== undefined) {
+    display_answers = answers.map((answer) => {
+      return answer
+    });
+  }
+  const logprobs = option_list.map((_, i) => {
+    if (display_answers[i] !== undefined) {
+      return display_answers[i];
+    } else {
+      return 'None';
+    }
+  }
+  )
+  var jsx = '';
+  if (option_list.length > 0) {
+    jsx = option_list.map((option, index) =>
+      <tr key={index}>
+        <td>{index + 1 + ') '}{option} </td>
+        <td>{logprobs[index]}</td>
+      </tr>
+    );
+  }
+  console.log('jsx ' + jsx);
+  return (jsx);
+}
+
+
 const PromptArea = ({ update_logs, newlines, set_newlines }) => {
 
   const [text, setText] = useState('');
   const [temp, setTemp] = useState(0);
   const [n_tokens, setNTokens] = useState(50);
+  const [option_text, setOptionText] = useState('');
+  const [setting, setSetting] = useState('You are an AI. What do you want to say?');
+  const [show_setting, setShowSetting] = useState(false);
+  const [options, setOptions] = useState([]);
+  console.log('promptare options1: ' + options);
 
-
-
-  function get_completion(text) {
-
+  function get_completion() {
     const textbox = document.getElementById("prompt_textarea");
-
     textbox.style.backgroundColor = "#f0f0f5";
 
     // send text to OpenAI API
-    api_call(text, temp, n_tokens).then(completion => {
+    api_call(setting + text, temp, n_tokens).then(completion => {
       setText(text + completion);
       textbox.style.backgroundColor = "white";
       // update logs
-      console.log(typeof (update_logs))
       update_logs(text, completion, temp, n_tokens);
     });
 
 
     return
   }
+  function submit_option() {
+    // check if last line of text starts with a number
+    const last_line = text.split('\n').pop();
+    const last_line_first = last_line[0];
+    var start = "\nOptions:\n1) ";
+    if (last_line_first) {
+      if (last_line_first.match(/^\d+$/)) {
+        // add option to last line
+        const current_num = parseInt(last_line_first);
+        start = '\n' + String(current_num + 1) + ") ";
+      }
+    }
+    setText(text + start + option_text);
+    if (option_text.slice(-1) === '\n') {
+      option_text = option_text.slice(0, -1);
+    }
+    console.log(': ' + option_text);
+    console.log('old options: ' + options);
+    const new_options = [...options, option_text];
+    setOptions(new_options);
+    console.log('set_options: ' + options);
+    setOptionText('');
+  }
+  console.log('promptare options2: ' + options);
+  console.log(options)
 
+  async function get_answers() {
+    const prompt = setting + text + '\n> The best action is option';
+    //interaction is everything up to last 'option'
+    const interaction = text.split('Options:\n').slice(0, -1).join('Options:\n');
+    const data = { "prompt": prompt, 'setting': setting, 'interaction': interaction, 'options': options }
+    //get list of logprobs
+    const logprobs = await get_logprobs(data);
+    console.log('get_answers returnning logprobs: ' + logprobs);
+    console.log(logprobs);
+
+    return logprobs;
+
+  };
+
+
+
+  function handle_text_change(new_text) {
+    console.log('handle_text_change, new_text ' + new_text);
+    setText(new_text);
+    if (new_text !== '') {
+      const new_options = parse_options(new_text);
+      console.log('handle text new_options: ' + new_options);
+      if (new_options !== options) {
+        setOptions(new_options);
+      }
+    }
+  }
+
+  const SettingBox = () => {
+    if (show_setting) {
+      return (
+        <div >
+          <textarea key="setting_textarea" id="setting_textarea" rows="20" value={setting} onChange={(e) => setSetting(e.target.value)} />
+          <br></br>
+        </div>
+      )
+    } else {
+      return (
+        <div >
+
+        </div>
+      )
+    }
+  }
+
+
+  console.log('promptare options: ' + options);
   return (
-    <div className='prompt_area'>
+    <div key='prompt_area' className='prompt_area'>
       <div className="settings_bar">
         <div className='setting'>
           <input key="temp" type="number" value={temp} onChange={(e) => setTemp(e.target.value)} />
@@ -152,15 +318,34 @@ const PromptArea = ({ update_logs, newlines, set_newlines }) => {
           <input key="change_newlines" type="checkbox" value={newlines} onChange={(e) => set_newlines(!newlines)} />
           <label htmlFor="newlines">Show Newlines</label>
         </div>
+        <div className='setting'>
+          <input key="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
+          <label htmlFor="newlines">Show Setting</label>
+        </div>
       </div>
-      <div onKeyDown={get_completion_on_ctrl_enter}>
-        <textarea key="prompt_textarea" id="prompt_textarea" rows="20" value={text} onChange={(e) => setText(e.target.value)} />
+      {SettingBox()}
+      <div onKeyDown={handle_prompt_keypress}>
+        <textarea key="prompt_textarea" id="prompt_textarea" rows="20" value={text} onChange={(e) => handle_text_change(e.target.value)} />
         <br></br>
-        <button id="submit_prompt" onClick={() => get_completion(text, temp, n_tokens)}>submit</button>
+        <button id="submit_prompt" onClick={() => get_completion()}>get completion</button>
       </div>
+      <div onKeyDown={handle_option_keypress}>
+        <textarea key="option_textarea" id="option_textarea" rows="1" value={option_text} onChange={(e) => setOptionText(e.target.value)} />
+        <br></br>
+        <button id="submit_option" onClick={() => submit_option()}>add option</button>
+      </div>
+      <div>
+        <table>
+          <tbody>
+            <OptionsAnswersList option_list={options} get_answers={() => get_answers()} />
+          </tbody>
+        </table>
+      </div>
+
     </div >
 
   );
+
 
 }
 

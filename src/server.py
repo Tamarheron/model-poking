@@ -52,6 +52,13 @@ def log_to_file(data, logprobs, completion):
         )
 
 
+def log_answer(data, logprobs):
+    data["answer_logprobs"] = logprobs
+    data["time_id"] = str(int(time.time()))
+    with open("answered_qs.txt", "a") as f:
+        f.write(json.dumps(data) + "\n")
+
+
 @app.route("/submit_prompt", methods=["POST"])
 def submit_prompt():
     print("submit_prompt")
@@ -74,6 +81,30 @@ def submit_prompt():
     print(completion)
     log_to_file(data, logprobs, completion)
     return completion
+
+
+@app.route("/get_answer", methods=["POST"])
+def get_answer():
+    print("submit_prompt")
+    # get json from request
+    data = flask.request.get_json()
+    print(data)
+    prompt = data["prompt"]
+    # send prompt to openai
+    response = openai.Completion.create(
+        engine="text-davinci-002",
+        prompt=prompt,
+        max_tokens=1,
+        temperature=0,
+        logprobs=5,
+    )
+    logprobs = response.choices[0].logprobs.top_logprobs
+    print(logprobs)
+    answer_logprobs = logprobs[0]
+    print(answer_logprobs)
+
+    log_answer(data, answer_logprobs)
+    return json.dumps(answer_logprobs)
 
 
 @app.route("/save_log", methods=["POST"])
