@@ -180,7 +180,7 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   );
   return (jsx);
 }
-const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_options, correct_options, answers }) => {
+const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_options, correct_options, answers, update_dataset_options }) => {
 
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
@@ -220,7 +220,8 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
             <tbody>
               <OptionsAnswersList key={'options_log_options_list' + String(pos_index) + String(data.time_id)} option_list={data.options}
                 answers={data.answer_logprobs} correct_options={data.correct_options}
-                time_id={data.time_id} set_correct_options={set_correct_options} />
+                time_id={data.time_id} set_correct_options={set_correct_options}
+                update_dataset_options={update_dataset_options} />
             </tbody>
           </table>
         </td>
@@ -271,8 +272,9 @@ function parse_options(text) {
     return [];
   }
 }
-const SingleOption = ({ option, index, correct_options, set_correct_options, logprobs, time_id }) => {
-  const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
+const SingleOption = ({ option, index, correct_options, set_correct_options, logprobs, time_id, update_dataset_options }) => {
+  // const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
+  var thisOptionCorrect = correct_options.includes(index)
   const color_logprobs = (logprob) => {
     if (logprob == 'None') {
       return 'white';
@@ -314,6 +316,7 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
       console.log('sending to server with time_id ', time_id)
       console.log('sending to server with new_correct_options ', new_correct_options)
       server_update_option_correct(index, !option_correct_at_start, time_id)
+      update_dataset_options(index, !option_correct_at_start, time_id)
 
     } else {
       console.log('updating current correct options to:', new_correct_options)
@@ -321,7 +324,8 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
     }
     set_correct_options(new_correct_options_for_state)
     // console.log('correct options after update', correct_options)
-    setThisOptionCorrect(!thisOptionCorrect)
+    // setThisOptionCorrect(!option_correct_at_start)
+    thisOptionCorrect = !option_correct_at_start
   }
 
   return (
@@ -332,10 +336,10 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
     </tr >);
 
 }
-const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct_options, time_id }) => {
+const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct_options, time_id, update_dataset_options }) => {
   // console.log('OAL2, answers: ', answers);
   // console.log(answers[1])
-  const [local_correct_options, setLocalCorrectOptions] = useState(correct_options)
+
   var display_answers = [];
   if (answers !== undefined) {
     display_answers = answers
@@ -357,8 +361,10 @@ const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct
   if (option_list.length > 0) {
     jsx = option_list.map((option, index) =>
       <SingleOption key={index} option={option} index={index}
-        correct_options={local_correct_options} set_correct_options={(options) => { set_correct_options(options); setLocalCorrectOptions(options) }}
-        logprobs={logprobs} time_id={time_id} />
+        correct_options={correct_options} set_correct_options={set_correct_options}
+        logprobs={logprobs} time_id={time_id}
+        update_dataset_options={update_dataset_options} />
+
 
     );
   }
@@ -601,6 +607,21 @@ function App() {
     setDatasetLogs([...dataset_logs, data])
 
   }
+  const update_dataset_options = (index, new_val, time_id) => {
+    const new_dataset_logs = dataset_logs.map(log => {
+      if (log.time_id === time_id) {
+        if (new_val) {
+          log.correct_options = [...log.correct_options, index];
+        } else {
+          log.correct_options = log.correct_options.filter(i => i !== index);
+        }
+      }
+      return log;
+    })
+    setDatasetLogs(new_dataset_logs)
+  }
+
+
   const remove_log = (id, dataset = 'log') => {
     if (dataset === 'log') {
       const new_logs = logs.filter(log => log.time_id !== id)
@@ -626,8 +647,10 @@ function App() {
         setAnswers={setAnswers}
         correct_options={correct_options}
         set_correct_options={(arr) => setCorrectOptions(arr)}
-        update_dataset_logs={add_dataset_log} newlines={newlines}
-        set_newlines={set_newlines} />
+        add_dataset_logs={add_dataset_log}
+        newlines={newlines}
+        set_newlines={set_newlines}
+      />
 
       <table className="dataset_logs">
         <thead>
@@ -649,7 +672,8 @@ function App() {
             correct_options={correct_options}
             remove_log_by_id={remove_log} answers={answers}
             set_correct_options={(arr) => setCorrectOptions(arr)}
-            white_space_style={white_space_style} />
+            white_space_style={white_space_style}
+            update_dataset_options={update_dataset_options} />
         </tbody>
       </table>
       <div className="container">
