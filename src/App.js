@@ -207,7 +207,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
   const OptionsLog = ({ data, pos_index }) => {
     //for the first example, if we've already submitted the prompt and got answers, the correct options should track
     const current_correct_options = correct_options
-    if (pos_index === 0 && answers[0] !== 'None') {
+    if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined) {
       data.correct_options = current_correct_options
     }
     return (
@@ -314,7 +314,8 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
 
     }
     if (time_id !== 'None') {
-      console.log('passing time_id ', time_id)
+      console.log('sending to server with time_id ', time_id)
+      console.log('sending to server with new_correct_options ', new_correct_options)
       server_update_option_correct(new_correct_options, time_id)
 
     } else {
@@ -582,8 +583,8 @@ function App() {
   const [logs, setLogs] = useState([]);
   const [dataset_logs, setDatasetLogs] = useState([]);
   const [newlines, setNewlines] = useState(false);
-  const [correct_options, setCorrectOptions] = useState([0])
-  const [answers, setAnswers] = useState([]);
+  const [correct_options, setCorrectOptions] = useState([0, "default"])
+  const [answers, setAnswers] = useState(['None']);
   useEffect(() => {
     get_logs_from_server().then(loaded_logs => {
       setLogs(loaded_logs)
