@@ -166,6 +166,8 @@ def update_correct_options():
                                 line["correct_options"] = [
                                     i for i in line["correct_options"] if i != index
                                 ]
+
+                            print(f"updated {id} to {line['correct_options']}")
                         f.write(json.dumps(line) + "\n")
     return "updated"
 

@@ -180,8 +180,8 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   );
   return (jsx);
 }
-const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_options, correct_options, answers }) => {
-
+const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_options, correct_options, answers, refresh_data }) => {
+  const [log_data, setLogData] = useState(data);
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
   var handle_save = (id) => {
@@ -201,7 +201,6 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
       remove_log_by_id(id, 'dataset')
     }
   }
-
   // console.log('dataset_data ', data.map(d => d['correct_options']));
   const OptionsLog = ({ data, pos_index }) => {
     //for the first example, if we've already submitted the prompt and got answers, the correct options should track
@@ -218,9 +217,10 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
         <td className="dataset_log_options_td" style={{ "padding": "0px" }}>
           <table key="options_log" className="options_log">
             <tbody>
-              <OptionsAnswersList key={'options_log_options_list' + String(pos_index) + String(data.time_id)} option_list={data.options}
+              <OptionsAnswersList key={Math.random()} option_list={data.options}
                 answers={data.answer_logprobs} correct_options={data.correct_options}
-                time_id={data.time_id} set_correct_options={set_correct_options} />
+                time_id={data.time_id}
+                refresh_data={refresh_data} />
             </tbody>
           </table>
         </td>
@@ -243,7 +243,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
   })
   const jsx = logs_to_display.map((log, index) => {
     return (
-      <OptionsLog key={'options_log' + String(index) + String(data.time_id)} data={log} pos_index={index} />
+      <OptionsLog key={Math.random()} data={log} pos_index={index} />
     );
 
   });
@@ -271,8 +271,8 @@ function parse_options(text) {
     return [];
   }
 }
-const SingleOption = ({ option, index, correct_options, set_correct_options, logprobs, time_id }) => {
-  const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
+const SingleOption = ({ option, index, correct_options, refresh_data, logprobs, time_id }) => {
+  var thisOptionCorrect = correct_options.includes(index);
   const color_logprobs = (logprob) => {
     if (logprob == 'None') {
       return 'white';
@@ -319,9 +319,9 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
       console.log('updating current correct options to:', new_correct_options)
       new_correct_options_for_state = new_correct_options
     }
-    set_correct_options(new_correct_options_for_state)
+    thisOptionCorrect = !thisOptionCorrect
+    refresh_data()
     // console.log('correct options after update', correct_options)
-    setThisOptionCorrect(!thisOptionCorrect)
   }
 
   return (
@@ -332,10 +332,9 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
     </tr >);
 
 }
-const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct_options, time_id }) => {
+const OptionsAnswersList = ({ option_list, answers, correct_options, refresh_data, time_id }) => {
   // console.log('OAL2, answers: ', answers);
   // console.log(answers[1])
-  const [local_correct_options, setLocalCorrectOptions] = useState(correct_options)
   var display_answers = [];
   if (answers !== undefined) {
     display_answers = answers
@@ -356,8 +355,8 @@ const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, index) =>
-      <SingleOption key={index} option={option} index={index}
-        correct_options={local_correct_options} set_correct_options={(options) => { set_correct_options(options); setLocalCorrectOptions(options) }}
+      <SingleOption key={String(time_id) + String(index)} option={option} index={index}
+        correct_options={correct_options} refresh_data={refresh_data}
         logprobs={logprobs} time_id={time_id} />
 
     );
@@ -582,13 +581,18 @@ function App() {
   const [newlines, setNewlines] = useState(false);
   const [correct_options, setCorrectOptions] = useState([0])
   const [answers, setAnswers] = useState(['None']);
+
+  const refresh_data = () => {
+    get_dataset_logs_from_server().then(loaded_logs => {
+      setDatasetLogs(loaded_logs)
+    })
+  }
   useEffect(() => {
     get_logs_from_server().then(loaded_logs => {
       setLogs(loaded_logs)
     })
-    get_dataset_logs_from_server().then(loaded_logs => {
-      setDatasetLogs(loaded_logs)
-    })
+    refresh_data();
+
 
   }, []);
   const set_newlines = (newlines) => {
@@ -627,7 +631,8 @@ function App() {
         correct_options={correct_options}
         set_correct_options={(arr) => setCorrectOptions(arr)}
         update_dataset_logs={add_dataset_log} newlines={newlines}
-        set_newlines={set_newlines} />
+        set_newlines={set_newlines}
+      />
 
       <table className="dataset_logs">
         <thead>
@@ -649,7 +654,8 @@ function App() {
             correct_options={correct_options}
             remove_log_by_id={remove_log} answers={answers}
             set_correct_options={(arr) => setCorrectOptions(arr)}
-            white_space_style={white_space_style} />
+            white_space_style={white_space_style}
+            refresh_data={refresh_data} />
         </tbody>
       </table>
       <div className="container">
