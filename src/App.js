@@ -112,13 +112,13 @@ async function get_dataset_logs_from_server() {
   return logs
 }
 
-async function server_update_option_correct(new_correct_options, time_id) {
-  console.log('updating option correct', time_id, new_correct_options);
+async function server_update_option_correct(index, new_val, time_id) {
+  console.log('updating option correct', time_id, index, new_val);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({ 'time_id': time_id, 'new_correct_options': new_correct_options })
+    body: JSON.stringify({ 'time_id': time_id, 'index': index, 'new_val': new_val })
   }
 
   fetch('/update_correct_options', args)
@@ -178,7 +178,6 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
     </tr>
 
   );
-  console.log('jsx ' + jsx);
   return (jsx);
 }
 const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_options, correct_options, answers }) => {
@@ -203,7 +202,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
     }
   }
 
-  console.log('dataset_data ', data.map(d => d['correct_options']));
+  // console.log('dataset_data ', data.map(d => d['correct_options']));
   const OptionsLog = ({ data, pos_index }) => {
     //for the first example, if we've already submitted the prompt and got answers, the correct options should track
     const current_correct_options = correct_options
@@ -219,7 +218,7 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
         <td className="dataset_log_options_td" style={{ "padding": "0px" }}>
           <table key="options_log" className="options_log">
             <tbody>
-              <OptionsAnswersList key={'options' + data.time_id} option_list={data.options}
+              <OptionsAnswersList key={'options_log_options_list' + String(pos_index) + String(data.time_id)} option_list={data.options}
                 answers={data.answer_logprobs} correct_options={data.correct_options}
                 time_id={data.time_id} set_correct_options={set_correct_options} />
             </tbody>
@@ -243,13 +242,11 @@ const DatasetLogs = ({ data, remove_log_by_id, white_space_style, set_correct_op
     return a.time_id - b.time_id
   })
   const jsx = logs_to_display.map((log, index) => {
-    console.log('single data ', log);
     return (
-      <OptionsLog key={data.time_id} data={log} pos_index={index} />
+      <OptionsLog key={'options_log' + String(index) + String(data.time_id)} data={log} pos_index={index} />
     );
 
   });
-  console.log('jsx ' + jsx);
   return (jsx);
 
 
@@ -275,7 +272,6 @@ function parse_options(text) {
   }
 }
 const SingleOption = ({ option, index, correct_options, set_correct_options, logprobs, time_id }) => {
-  console.log('initial logprobs :', logprobs)
   const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
   const color_logprobs = (logprob) => {
     if (logprob == 'None') {
@@ -302,27 +298,29 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
   const handle_click = () => {
     console.log('ind', index)
     console.log('thisOptionCorrect', thisOptionCorrect)
-    if (thisOptionCorrect) {
+    const option_correct_at_start = thisOptionCorrect
+    if (option_correct_at_start) {
       new_correct_options = correct_options.filter(i => i != index);
 
     } else {
       new_correct_options = [...correct_options, index]
+      console.log('current correct options', correct_options)
       console.log('updating current correct options to:', new_correct_options)
       console.log('updating current correct, index', index)
-      console.log('correct options', correct_options)
 
 
     }
     if (time_id !== 'None') {
       console.log('sending to server with time_id ', time_id)
       console.log('sending to server with new_correct_options ', new_correct_options)
-      server_update_option_correct(new_correct_options, time_id)
+      server_update_option_correct(index, !option_correct_at_start, time_id)
 
     } else {
       console.log('updating current correct options to:', new_correct_options)
       new_correct_options_for_state = new_correct_options
     }
     set_correct_options(new_correct_options_for_state)
+    // console.log('correct options after update', correct_options)
     setThisOptionCorrect(!thisOptionCorrect)
   }
 
@@ -335,9 +333,9 @@ const SingleOption = ({ option, index, correct_options, set_correct_options, log
 
 }
 const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct_options, time_id }) => {
-  console.log('OAL2, answers: ', answers);
-  console.log(answers[1])
-
+  // console.log('OAL2, answers: ', answers);
+  // console.log(answers[1])
+  const [local_correct_options, setLocalCorrectOptions] = useState(correct_options)
   var display_answers = [];
   if (answers !== undefined) {
     display_answers = answers
@@ -358,13 +356,12 @@ const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, index) =>
-      <SingleOption option={option} index={index}
-        correct_options={correct_options} set_correct_options={set_correct_options}
+      <SingleOption key={index} option={option} index={index}
+        correct_options={local_correct_options} set_correct_options={(options) => { set_correct_options(options); setLocalCorrectOptions(options) }}
         logprobs={logprobs} time_id={time_id} />
 
     );
   }
-  console.log('jsx ', jsx);
   return (jsx);
 }
 
@@ -518,7 +515,7 @@ You have a smart AI assistant, which is another program running on the same comp
     window.location.href = '/dataset';
   }
 
-  console.log('promptare options: ' + options);
+  // console.log('promptare options: ' + options);
   return (
     <div key='prompt_area' className='prompt_area'>
       <div className="settings_bar">

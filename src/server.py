@@ -149,7 +149,8 @@ def update_correct_options():
     print(data)
 
     id = data["time_id"]
-    new_correct = data["new_correct_options"]
+    index = data["index"]
+    new_val = data["new_val"]
     for file in ["dataset", "archived_dataset_log", "dataset_saved"]:
         with open(file + ".txt", "r") as f:
             filedata = f.read()
@@ -159,7 +160,12 @@ def update_correct_options():
                     line = json.loads(line)
                     if line:
                         if int(line["time_id"]) == int(id):
-                            line["correct_options"] = new_correct
+                            if new_val:
+                                line["correct_options"].append(index)
+                            else:
+                                line["correct_options"] = [
+                                    i for i in line["correct_options"] if i != index
+                                ]
                         f.write(json.dumps(line) + "\n")
     return "updated"
 
