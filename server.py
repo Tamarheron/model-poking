@@ -6,7 +6,7 @@ import argparse
 import openai
 import time
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path="", static_folder="frontend/build")
 
 
 def archive(id, dataset=False):
