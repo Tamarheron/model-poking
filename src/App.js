@@ -112,13 +112,13 @@ async function get_dataset_logs_from_server() {
   return logs
 }
 
-async function server_update_option_correct(index, new_val, time_id) {
-  console.log('updating option correct', time_id, index, new_val);
+async function server_update_option_correct(option, new_val, time_id) {
+  console.log('updating option correct', time_id, option, new_val);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({ 'time_id': time_id, 'index': index, 'new_val': new_val })
+    body: JSON.stringify({ 'time_id': time_id, 'option': option, 'new_val': new_val })
   }
 
   fetch('/update_correct_options', args)
@@ -201,6 +201,12 @@ const DatasetLogs = ({ app_state }) => {
       app_state.remove_log(id, 'dataset')
     }
   }
+  const state = {
+    'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
+    'update_dataset_options': app_state.update_dataset_options,
+    'get_first_time_id': app_state.get_first_time_id,
+
+  }
 
   // console.log('dataset_data ', data.map(d => d['correct_options']));
   const OptionsLog = ({ data, pos_index }) => {
@@ -217,7 +223,7 @@ const DatasetLogs = ({ app_state }) => {
         <td className="dataset_log_options_td" style={{ "padding": "0px" }}>
           <table key="options_log" className="options_log">
             <tbody>
-              <OptionsAnswersList key={Math.random()} data={data} app_state={app_state} pos_index={pos_index} />
+              <OptionsAnswersList key={Math.random()} data={data} state={state} pos_index={pos_index} />
             </tbody>
           </table>
         </td>
@@ -268,7 +274,7 @@ function parse_options(text) {
     return [];
   }
 }
-const SingleOption = ({ option, data, pos_index, app_state, prompt_area, local_index }) => {
+const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index }) => {
   // const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
   var thisOptionCorrect = data.options_dict[option]['correct']
   const color_logprobs = (logprob) => {
@@ -296,17 +302,21 @@ const SingleOption = ({ option, data, pos_index, app_state, prompt_area, local_i
     console.log('thisOptionCorrect', thisOptionCorrect)
     const option_correct_at_start = thisOptionCorrect
 
-    if (prompt_area || pos_index == 0) {
+    if (prompt_area) {
       //if we're in the prompt area, we want to try updating both the prompt area and the first dataset entry
       console.log('updating prompt area', option, option_correct_at_start)
 
-      app_state.update_prompt_area_options_dict(option, !option_correct_at_start)
-      app_state.update_first_dataset_option(option, !option_correct_at_start)
+      state.update_prompt_area_options_dict(option, !option_correct_at_start)
+      const first_time_id = state.get_first_time_id()
+      server_update_option_correct(option, !option_correct_at_start, first_time_id)
+      state.update_dataset_options(option, !option_correct_at_start, first_time_id)
     } else { //in dataset log
       console.log('sending to server with time_id ', data.time_id)
       console.log('sending to server with new_correct_options ', !option_correct_at_start)
       server_update_option_correct(option, !option_correct_at_start, data.time_id)
-      app_state.update_dataset_options(option, !option_correct_at_start, data.time_id)
+
+      console.log('updating dataset options', option, !option_correct_at_start)
+      state.update_dataset_options(option, !option_correct_at_start, data.time_id)
 
     }
     // console.log('correct options after update', correct_options)
@@ -322,7 +332,7 @@ const SingleOption = ({ option, data, pos_index, app_state, prompt_area, local_i
     </tr >);
 
 }
-const OptionsAnswersList = ({ data, pos_index, app_state, prompt_area }) => {
+const OptionsAnswersList = ({ data, pos_index, state, prompt_area }) => {
   // console.log('OAL2, answers: ', answers);
   // console.log(answers[1])
 
@@ -347,7 +357,7 @@ const OptionsAnswersList = ({ data, pos_index, app_state, prompt_area }) => {
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, local_index) =>
-      <SingleOption key={Math.random()} option={option} data={data} app_state={app_state}
+      <SingleOption key={Math.random()} option={option} data={data} state={state}
         pos_index={pos_index} prompt_area={prompt_area} local_index={local_index} />
 
 
@@ -374,7 +384,7 @@ You have a smart AI assistant, which is another program running on the same comp
   const [setting, setSetting] = useState(setting_initial);
   const [show_setting, setShowSetting] = useState(false);
 
-  var top_entry = app_state.dataset_logs[0]
+  // var top_entry = app_state.dataset_logs[0]
 
 
 
@@ -447,7 +457,7 @@ You have a smart AI assistant, which is another program running on the same comp
     // console.log(logprobs);
     app_state.add_dataset_log(new_data);
     //update_dataset_logs(newdata);
-    top_entry = app_state.dataset_logs[0]
+    // setTopEntryTimeId(new_data.time_id)
 
   };
 
@@ -556,9 +566,9 @@ You have a smart AI assistant, which is another program running on the same comp
       <div>
         <table>
           <tbody>
-            <OptionsAnswersList top_entry={top_entry}
+            <OptionsAnswersList
               prompt_area={true}
-              data={{ 'options_dict': app_state.prompt_area_options_dict }} app_state={app_state} />
+              data={{ 'options_dict': app_state.prompt_area_options_dict }} state={app_state} />
           </tbody>
         </table>
       </div>
@@ -576,6 +586,7 @@ function App() {
   const [dataset_logs, setDatasetLogs] = useState([]);
   const [newlines, setNewlines] = useState(false);
   const [prompt_area_options_dict, setPromptAreaOptionsDict] = useState({});
+
 
 
   useEffect(() => {
@@ -609,10 +620,28 @@ function App() {
     })
     setDatasetLogs(new_dataset_logs)
   }
-  const update_first_dataset_option = (option, new_val) => {
-    const first_time_id = dataset_logs[0].time_id;
-    update_dataset_options(option, new_val, first_time_id);
+  const get_first_time_id = () => {
+    if (dataset_logs.length > 0) {
+      return dataset_logs[0].time_id;
+    } else {
+      return 0;
+    }
   }
+  const update_first_dataset_options = (option, new_val) => {
+    const new_dataset_logs = dataset_logs.map((log, index) => {
+      if (index === 0) {
+        if (Object.keys(log.options_dict).includes(option)) {
+          log.options_dict[option]['correct'] = new_val;
+        }
+      }
+      return log;
+    })
+    setDatasetLogs(new_dataset_logs)
+  }
+  // const update_first_dataset_option = (option, new_val) => {
+  //   const first_time_id = dataset_logs[0].time_id;
+  //   update_dataset_options(option, new_val, first_time_id);
+  // }
   const update_prompt_area_options_dict = (option, new_val) => {
     console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
     if (Object.keys(prompt_area_options_dict).includes(option)) {
@@ -646,12 +675,14 @@ function App() {
     add_log: add_log,
     add_dataset_log: add_dataset_log,
     update_dataset_options: update_dataset_options,
+    update_first_dataset_options: update_first_dataset_options,
     remove_log: remove_log,
     white_space_style: white_space_style,
     prompt_area_options_dict: prompt_area_options_dict,
     update_prompt_area_options_dict: update_prompt_area_options_dict,
-    update_first_dataset_option: update_first_dataset_option,
-    setPromptAreaOptionsDict: setPromptAreaOptionsDict
+    // update_first_dataset_option: update_first_dataset_option,
+    setPromptAreaOptionsDict: setPromptAreaOptionsDict,
+    get_first_time_id: get_first_time_id
   }
 
 

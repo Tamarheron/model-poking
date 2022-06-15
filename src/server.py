@@ -65,7 +65,7 @@ def add_to_saved(id, dataset=False):
 def make_options_dict(item):
     item["options_dict"] = {}
     for i, option in enumerate(item["options"]):
-        logprob = item["answer_logprobs"].get(f" {i}", "None")
+        logprob = item["answer_logprobs"].get(f" {i+1}", "None")
         correct_options = item.get("correct_options", [])
         item["options_dict"][option] = {
             "correct": i in correct_options,
@@ -75,7 +75,7 @@ def make_options_dict(item):
 
 def update_options_dict(item):
     for i, option in enumerate(item["options"]):
-        logprob = item["answer_logprobs"].get(f" {i}")
+        logprob = item["answer_logprobs"].get(f" {i+1}", "None")
         item["options_dict"][option]["logprob"] = logprob
 
 
@@ -186,7 +186,7 @@ def update_correct_options():
                     line = json.loads(line)
                     if line:
                         if int(line["time_id"]) == int(id):
-                            line["options_dict"][option] = new_val
+                            line["options_dict"][option]["correct"] = new_val
                         f.write(json.dumps(line) + "\n")
     return "updated"
 
