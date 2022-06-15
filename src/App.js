@@ -111,6 +111,7 @@ async function get_dataset_logs_from_server() {
   const raw = await fetch('/get_dataset_logs')
   const logs = await raw.json()
   // rename prompt_options_list to options
+
   return logs
 }
 
@@ -349,9 +350,9 @@ function App() {
     if (answers !== undefined) {
       display_answers = answers
     }
-    console.log('about to map on option_list: ', option_list)
-    console.log('prompt_area: ', prompt_area)
-    console.log(option_list.length)
+    // console.log('about to map on option_list: ', option_list)
+    // console.log('prompt_area: ', prompt_area)
+    // console.log(option_list.length)
     const logprobs = option_list.map((_, i) => {
       const tok = ' ' + String(i + 1);
       if (display_answers[tok] !== undefined) {
@@ -395,14 +396,17 @@ function App() {
     // console.log('promptare prompt_area_options1: ' + prompt_area_options);
 
     function get_completion() {
+
       const textbox = document.getElementById("prompt_textarea");
       textbox.style.backgroundColor = "#f0f0f5";
+      console.log('making API call')
       // send text to OpenAI API
       api_call(setting + text, temp, n_tokens).then(data => {
         setText(text + data.completion);
         textbox.style.backgroundColor = "white";
+        console.log('API call returned')
         // update logs
-        add_dataset_log(data);
+        add_log(data);
       });
 
 
@@ -602,7 +606,7 @@ function App() {
 
     // console.log('dataset_data ', data.map(d => d['correct_options']));
     const OptionsLog = ({ data, pos_index }) => {
-      console.log('in OptionsLog', data.options);
+      // console.log('in OptionsLog', data.options);
       //for the first example, if we've already submitted the prompt and got answers, the correct options should track
       const current_correct_options = prompt_area_correct_options
       if (pos_index === 0 && prompt_area_answers[0] !== 'None' && prompt_area_answers !== undefined && prompt_area_correct_options.length > 0) {
@@ -642,8 +646,8 @@ function App() {
       return a.time_id - b.time_id
     })
     const jsx = logs_to_display.map((log, index) => {
-      console.log('about to make OptionsLog with log with log', log);
-      console.log('about to make OptionsLog with log with options', log.options);
+      // console.log('about to make OptionsLog with log with log', log);
+      // console.log('about to make OptionsLog with log with options', log.options);
       return (
         <OptionsLog key={'options_log' + String(index) + String(log.time_id)} data={log} pos_index={index} />
       );
