@@ -186,7 +186,8 @@ def update_correct_options():
                     line = json.loads(line)
                     if line:
                         if int(line["time_id"]) == int(id):
-                            line["options_dict"][option]["correct"] = new_val
+                            if option in line["options_dict"]:
+                                line["options_dict"][option]["correct"] = new_val
                         f.write(json.dumps(line) + "\n")
     return "updated"
 

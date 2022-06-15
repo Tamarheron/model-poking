@@ -456,14 +456,13 @@ You have a smart AI assistant, which is another program running on the same comp
     // console.log('get_answers returning logprobs: ' + logprobs);
     // console.log(logprobs);
     app_state.add_dataset_log(new_data);
-    //update_dataset_logs(newdata);
-    // setTopEntryTimeId(new_data.time_id)
+    app_state.setPromptAreaOptionsDict(new_data.options_dict);
 
   };
 
   function handle_continue() {
     //get first correct option, then remove options from text, then add option as a model action
-    const correct_option = app_state.prompt_area_options_dict.filter(option => option.correct)[0];
+    const correct_option = Object.keys(app_state.prompt_area_options_dict).filter(option => app_state.prompt_area_options_dict[option].correct === true)[0];
     const interaction = get_interaction()
     const continue_text = '\n> Action:' + correct_option;
     setText(interaction + continue_text);
