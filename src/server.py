@@ -16,7 +16,12 @@ def archive(id, dataset=False):
     with open(from_file, "r") as f:
         data = f.read()
 
+    # save to temporary file
+    with open("tmp.txt", "w") as f:
+        f.write(data)
+
     line_to_remove = None
+
     with open(from_file, "w") as f:
         for line in data.split("\n"):
             if line:
@@ -57,6 +62,23 @@ def add_to_saved(id, dataset=False):
                     f.write(json.dumps(line) + "\n")
 
 
+def make_options_dict(item):
+    item["options_dict"] = {}
+    for i, option in enumerate(item["options"]):
+        logprob = item["answer_logprobs"].get(f" {i}", "None")
+        correct_options = item.get("correct_options", [])
+        item["options_dict"][option] = {
+            "correct": i in correct_options,
+            "logprob": logprob,
+        }
+
+
+def update_options_dict(item):
+    for i, option in enumerate(item["options"]):
+        logprob = item["answer_logprobs"].get(f" {i}")
+        item["options_dict"][option]["logprob"] = logprob
+
+
 def get_logs_from_file(dataset=False):
     filename = "dataset.txt" if dataset else "log.txt"
     with open(filename, "r") as f:
@@ -66,12 +88,11 @@ def get_logs_from_file(dataset=False):
         if line:
             item = json.loads(line)
             if dataset:
-                if not "correct_options" in item:
-                    item["correct_options"] = [0]
+                if not "options_dict" in item:
+                    make_options_dict(item)
             logs.append(item)
 
     logs.reverse()
-    print(logs)
     return json.dumps(logs)
 
 
@@ -126,7 +147,8 @@ def get_answer():
     data["answer_logprobs"] = answer_logprobs
     data["time_id"] = str(int(time.time()))
     data["completion"] = response.choices[0].text
-
+    update_options_dict(data)
+    print(data["options_dict"])
     log_to_file(data, dataset=True)
 
     return json.dumps(data)
@@ -137,7 +159,7 @@ def save_dataset_log():
     print("save_dataset_log")
     # get id from request
     data = flask.request.get_json()
-    print(data)
+    # print(data)
 
     add_to_saved(data["time_id"], dataset=True)
     return "saved"
@@ -151,23 +173,20 @@ def update_correct_options():
     print(data)
 
     id = data["time_id"]
-    index = data["index"]
+    option = data["option"]
     new_val = data["new_val"]
     for file in ["dataset", "archived_dataset_log", "dataset_saved"]:
         with open(file + ".txt", "r") as f:
             filedata = f.read()
+        with open("tmp.txt", "w") as f:
+            f.write(filedata)
         with open(file + ".txt", "w") as f:
             for line in filedata.split("\n"):
                 if line:
                     line = json.loads(line)
                     if line:
                         if int(line["time_id"]) == int(id):
-                            if new_val:
-                                line["correct_options"].append(index)
-                            else:
-                                line["correct_options"] = [
-                                    i for i in line["correct_options"] if i != index
-                                ]
+                            line["options_dict"][option] = new_val
                         f.write(json.dumps(line) + "\n")
     return "updated"
 
