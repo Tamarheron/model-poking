@@ -198,7 +198,7 @@ const DatasetLogs = ({ app_state }) => {
     return () => {
       server_archive(id, true);
       // update logs
-      app_state.remove_log_by_id(id, 'dataset')
+      app_state.remove_log(id, 'dataset')
     }
   }
 
@@ -297,7 +297,9 @@ const SingleOption = ({ option, data, pos_index, app_state, prompt_area, local_i
     const option_correct_at_start = thisOptionCorrect
 
     if (prompt_area || pos_index == 0) {
-      // update the 
+      //if we're in the prompt area, we want to try updating both the prompt area and the first dataset entry
+      console.log('updating prompt area', option, option_correct_at_start)
+
       app_state.update_prompt_area_options_dict(option, !option_correct_at_start)
       app_state.update_first_dataset_option(option, !option_correct_at_start)
     } else { //in dataset log
@@ -386,7 +388,7 @@ You have a smart AI assistant, which is another program running on the same comp
       setText(text + data.completion);
       textbox.style.backgroundColor = "white";
       // update logs
-      app_state.update_logs(data);
+      app_state.add_log(data);
     });
 
 
@@ -398,7 +400,7 @@ You have a smart AI assistant, which is another program running on the same comp
   }
   function add_new_option(option_text) {
     var new_options_dict = app_state.prompt_area_options_dict;
-    new_options_dict.push({ option_text: { correct: false, logprob: 'None' } });
+    new_options_dict[option_text] = { correct: false, logprob: 'None' };
     app_state.setPromptAreaOptionsDict(new_options_dict);
   }
   function submit_option() {
@@ -556,7 +558,7 @@ You have a smart AI assistant, which is another program running on the same comp
           <tbody>
             <OptionsAnswersList top_entry={top_entry}
               prompt_area={true}
-              data={{ 'options_dict': app_state.prompt_area_options_dict }} />
+              data={{ 'options_dict': app_state.prompt_area_options_dict }} app_state={app_state} />
           </tbody>
         </table>
       </div>
@@ -599,7 +601,7 @@ function App() {
   const update_dataset_options = (option, new_val, time_id) => {
     const new_dataset_logs = dataset_logs.map(log => {
       if (log.time_id === time_id) {
-        if (option in Object.keys(log.options_dict)) {
+        if (Object.keys(log.options_dict).includes(option)) {
           log.options_dict[option]['correct'] = new_val;
         }
       }
@@ -612,7 +614,9 @@ function App() {
     update_dataset_options(option, new_val, first_time_id);
   }
   const update_prompt_area_options_dict = (option, new_val) => {
-    if (option in Object.keys(prompt_area_options_dict)) {
+    console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
+    if (Object.keys(prompt_area_options_dict).includes(option)) {
+      console.log('found option');
       var new_dict = prompt_area_options_dict;
       new_dict[option]['correct'] = new_val;
       setPromptAreaOptionsDict(new_dict);
@@ -646,7 +650,8 @@ function App() {
     white_space_style: white_space_style,
     prompt_area_options_dict: prompt_area_options_dict,
     update_prompt_area_options_dict: update_prompt_area_options_dict,
-    update_first_dataset_option: update_first_dataset_option
+    update_first_dataset_option: update_first_dataset_option,
+    setPromptAreaOptionsDict: setPromptAreaOptionsDict
   }
 
 
