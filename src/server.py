@@ -225,7 +225,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     port = args.port
     aws = True
-    engine = "davinci:ft-personal-2022-06-15-00-41-02"
+    engine = "text-davinci-002"
     push_to_aws = True
     if args.debug:
         app.debug = True
