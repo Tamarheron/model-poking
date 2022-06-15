@@ -4,10 +4,10 @@ import React, { useEffect, useState } from 'react';
 
 
 
-function api_call(text, temp = 0, n_tokens = 50,) {
+function api_call(text, temp = 0, n_tokens = 50, engine) {
 
   // send text, temperature to Flask backend
-  const data = { "text": text, "temp": temp, "n_tokens": n_tokens }
+  const data = { "text": text, "temp": temp, "n_tokens": n_tokens, 'engine': engine }
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
@@ -383,6 +383,7 @@ You have a smart AI assistant, which is another program running on the same comp
   const [option_text, setOptionText] = useState('');
   const [setting, setSetting] = useState(setting_initial);
   const [show_setting, setShowSetting] = useState(false);
+  const [engine, setEngine] = useState('text-davinci-002');
 
   // var top_entry = app_state.dataset_logs[0]
 
@@ -394,7 +395,7 @@ You have a smart AI assistant, which is another program running on the same comp
     const textbox = document.getElementById("prompt_textarea");
     textbox.style.backgroundColor = "#f0f0f5";
     // send text to OpenAI API
-    api_call(setting + text, temp, n_tokens).then(data => {
+    api_call(setting + text, temp, n_tokens, engine).then(data => {
       setText(text + data.completion);
       textbox.style.backgroundColor = "white";
       // update logs
@@ -448,7 +449,7 @@ You have a smart AI assistant, which is another program running on the same comp
     const interaction = get_interaction()
     const data = {
       "prompt": prompt, 'setting': setting, 'interaction': interaction,
-      'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict)
+      'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict), 'engine': engine
     }
     //get list of logprobs
     const new_data = await get_dataset_example(data);
@@ -541,9 +542,24 @@ You have a smart AI assistant, which is another program running on the same comp
           <input key="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
           <label htmlFor="newlines">Show Setting</label>
         </div>
-        <div className='setting'>
-          <button id="view_dataset" onClick={() => view_dataset()}>view_dataset (todo)</button>
+        <div className='engine' onChange={(e) => setEngine(e)}>
+
+          <label htmlFor="davinci">Davinci
+            <input type="radio" value="davinci" name="engine" />
+
+          </label>
+
+          <label htmlFor="text-davinci-002">
+            Text-Davinci-002
+            <input type="radio" value="text-davinci-002" name="engine" defaultChecked={true} />
+          </label>
+
+          <label htmlFor="davinci-finetune-small-1">
+            Davinci-ft-Small-1
+            <input type="radio" value="davinci-finetune-small-1" name="engine" />
+          </label>
         </div>
+
       </div>
       {SettingBox()}
       <div onKeyDown={handle_prompt_keypress}>
@@ -585,6 +601,7 @@ function App() {
   const [dataset_logs, setDatasetLogs] = useState([]);
   const [newlines, setNewlines] = useState(false);
   const [prompt_area_options_dict, setPromptAreaOptionsDict] = useState({});
+
 
 
 

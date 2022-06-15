@@ -105,6 +105,7 @@ def submit_prompt():
     prompt = data["text"]
     temp = float(data["temp"])
     n_tokens = int(data["n_tokens"])
+    engine = data["engine"]
     # send prompt to openai
     response = openai.Completion.create(
         engine=engine,
@@ -132,6 +133,7 @@ def get_answer():
     data = flask.request.get_json()
     print(data)
     prompt = data["prompt"]
+    engine = data["engine"]
     # send prompt to openai
     response = openai.Completion.create(
         engine=engine,
@@ -245,7 +247,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     port = args.port
     aws = True
-    engine = "text-davinci-002"
     push_to_aws = True
     if args.debug:
         app.debug = True
