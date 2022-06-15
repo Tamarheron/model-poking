@@ -86,12 +86,13 @@ def submit_prompt():
     n_tokens = int(data["n_tokens"])
     # send prompt to openai
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine=engine,
         prompt=prompt,
         max_tokens=n_tokens,
         temperature=temp,
         logprobs=1,
     )
+    print("getting completion from openai, engine: " + engine)
     completion = response.choices[0].text
     logprobs = response.choices[0].logprobs
 
@@ -112,13 +113,13 @@ def get_answer():
     prompt = data["prompt"]
     # send prompt to openai
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine=engine,
         prompt=prompt,
         max_tokens=1,
         temperature=0,
         logprobs=5,
     )
-    logprobs = response.choices[0].logprobs.top_logprobs
+    logprobs = response.choices[0].logprobs.top_logprob
 
     answer_logprobs = logprobs[0]
     data["answer_logprobs"] = answer_logprobs
@@ -223,6 +224,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     port = args.port
     aws = True
+    engine = "davinci:ft-personal-2022-06-15-00-09-30"
     push_to_aws = True
     if args.debug:
         app.debug = True
