@@ -119,7 +119,8 @@ def get_answer():
         temperature=0,
         logprobs=5,
     )
-    logprobs = response.choices[0].logprobs.top_logprob
+    print(response.choices[0])
+    logprobs = response.choices[0].logprobs.top_logprobs
 
     answer_logprobs = logprobs[0]
     data["answer_logprobs"] = answer_logprobs
@@ -224,7 +225,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     port = args.port
     aws = True
-    engine = "davinci:ft-personal-2022-06-15-00-09-30"
+    engine = "davinci:ft-personal-2022-06-15-00-41-02"
     push_to_aws = True
     if args.debug:
         app.debug = True

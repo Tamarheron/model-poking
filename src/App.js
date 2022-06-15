@@ -372,7 +372,7 @@ const OptionsAnswersList = ({ option_list, answers, correct_options, set_correct
 }
 
 
-const PromptArea = ({ update_logs, update_dataset_logs,
+const PromptArea = ({ update_logs, add_dataset_log,
   newlines, set_newlines, correct_options,
   set_correct_options, answers, setAnswers }) => {
   const setting_initial = `
@@ -455,7 +455,7 @@ You have a smart AI assistant, which is another program running on the same comp
     console.log(logprobs);
 
     setAnswers(logprobs);
-    update_dataset_logs(new_data);
+    add_dataset_log(new_data);
     //update_dataset_logs(newdata);
 
   };
@@ -604,6 +604,7 @@ function App() {
     setLogs([...logs, data])
   }
   const add_dataset_log = (data) => {
+    console.log('add_dataset_log, data: ' + data);
     setDatasetLogs([...dataset_logs, data])
 
   }
@@ -647,7 +648,7 @@ function App() {
         setAnswers={setAnswers}
         correct_options={correct_options}
         set_correct_options={(arr) => setCorrectOptions(arr)}
-        add_dataset_logs={add_dataset_log}
+        add_dataset_log={add_dataset_log}
         newlines={newlines}
         set_newlines={set_newlines}
       />
