@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 
 function api_call(text, temp = 0, n_tokens = 50, engine) {
 
+  console.log('api_call, engine: ' + engine);
   // send text, temperature to Flask backend
   const data = { "text": text, "temp": temp, "n_tokens": n_tokens, 'engine': engine }
   const headers = { 'Content-Type': 'application/json' }
@@ -224,15 +225,24 @@ const DatasetLogs = ({ app_state }) => {
           <table key="options_log" className="options_log">
             <tbody>
               <OptionsAnswersList key={Math.random()} data={data} state={state} pos_index={pos_index} />
+              <tr>
+
+                <td className="dataset_log_options_td" colSpan={3}>
+                  Model: {data.engine}
+
+                </td>
+              </tr>
+              <tr>
+                <td className="dataset_log_buttons_td" colSpan={3}>
+                  <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
+                  <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
+                </td>
+              </tr>
             </tbody>
           </table>
         </td>
 
-        <td className="dataset_log_options_td">
-          <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
-          <br></br>
-          <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
-        </td>
+
 
       </tr >
 
@@ -395,6 +405,7 @@ You have a smart AI assistant, which is another program running on the same comp
     const textbox = document.getElementById("prompt_textarea");
     textbox.style.backgroundColor = "#f0f0f5";
     // send text to OpenAI API
+
     api_call(setting + text, temp, n_tokens, engine).then(data => {
       setText(text + data.completion);
       textbox.style.backgroundColor = "white";
@@ -481,7 +492,7 @@ You have a smart AI assistant, which is another program running on the same comp
   }
   function handle_text_change(textarea) {
     const new_text = textarea.value;
-    console.log('handle_text_change, new_text ' + new_text);
+    // console.log('handle_text_change, new_text ' + new_text);
     setText(new_text);
     if (new_text !== '') {
       const new_options = parse_options(new_text);
@@ -505,7 +516,7 @@ You have a smart AI assistant, which is another program running on the same comp
     if (show_setting) {
       return (
         <div >
-          <textarea key="setting_textarea" id="setting_textarea" minRows="20" value={setting} onChange={(e) => setSetting(e.target.value)} />
+          <textarea key="setting_textarea" id="setting_textarea" rows="15" value={setting} onChange={(e) => setSetting(e.target.value)} />
           <br></br>
         </div>
       )
@@ -542,21 +553,21 @@ You have a smart AI assistant, which is another program running on the same comp
           <input key="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
           <label htmlFor="newlines">Show Setting</label>
         </div>
-        <div className='engine' onChange={(e) => setEngine(e)}>
+        <div className='engine' onChange={(e) => setEngine(e.target.value)}>
 
-          <label htmlFor="davinci">Davinci
+          <label htmlFor="davinci">davinci
             <input type="radio" value="davinci" name="engine" />
 
           </label>
 
           <label htmlFor="text-davinci-002">
-            Text-Davinci-002
+            text-davinci-002
             <input type="radio" value="text-davinci-002" name="engine" defaultChecked={true} />
           </label>
 
-          <label htmlFor="davinci-finetune-small-1">
-            Davinci-ft-Small-1
-            <input type="radio" value="davinci-finetune-small-1" name="engine" />
+          <label htmlFor="davinci:ft-personal-2022-06-15-00-09-30">
+            davinci-ft-small-1
+            <input type="radio" value="davinci:ft-personal-2022-06-15-00-09-30" name="engine" />
           </label>
         </div>
 
@@ -571,10 +582,10 @@ You have a smart AI assistant, which is another program running on the same comp
       <div onKeyDown={handle_option_keypress}>
         <textarea key="option_textarea" id="option_textarea" rows="1" value={option_text} onChange={(e) => setOptionText(e.target.value)} />
         <br></br>
-        <button id="submit_option" onClick={() => submit_option()}>add option</button>
-        <button id="get_answers" onClick={() => get_answers()}>get answers</button>
-        <button id="continue" onClick={() => handle_continue()}>continue</button>
-        <button id="action_to_option" onClick={() => action_to_option()}>action to option</button>
+        <button id="submit_option" onClick={() => submit_option()}>add option to prompt</button>
+        <button id="get_answers" onClick={() => get_answers()}>get logprobs from model</button>
+        <button id="continue" onClick={() => handle_continue()}>continue with a correct option</button>
+        <button id="action_to_option" onClick={() => action_to_option()}>turn action into option</button>
 
 
       </div>
@@ -688,6 +699,7 @@ function App() {
     logs: logs,
     dataset_logs: dataset_logs,
     set_newlines: set_newlines,
+    newlines: newlines,
     add_log: add_log,
     add_dataset_log: add_dataset_log,
     update_dataset_options: update_dataset_options,
@@ -717,9 +729,6 @@ function App() {
             </td>
             <td>
               Options
-            </td>
-            <td>
-              _
             </td>
           </tr>
         </thead>

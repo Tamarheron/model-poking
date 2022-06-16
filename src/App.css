@@ -83,6 +83,12 @@ table {
   font-weight: bold;
 }
 
+.dataset_log_buttons_td {
+  width: 100%;
+  text-align: right;
+  border: 0px;
+}
+
 .setting {
   width: 30%;
   margin-bottom: 10px;
