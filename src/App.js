@@ -215,6 +215,11 @@ const DatasetLogs = ({ app_state }) => {
     // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
     //   data.correct_options = current_correct_options
     // }
+    var engine_name = 'davinci-text-002'
+    if (data.engine !== undefined) {
+      engine_name = data.engine
+      engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
+    }
     return (
 
       <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
@@ -228,12 +233,13 @@ const DatasetLogs = ({ app_state }) => {
               <tr>
 
                 <td className="dataset_log_options_td" colSpan={3}>
-                  Model: {data.engine}
+                  Model: {engine_name}
 
                 </td>
               </tr>
               <tr>
                 <td className="dataset_log_buttons_td" colSpan={3}>
+                  <span> Completion id: {data.time_id} </span>
                   <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
                   <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
                 </td>
@@ -395,7 +401,14 @@ You have a smart AI assistant, which is another program running on the same comp
   const [show_setting, setShowSetting] = useState(false);
   const [engine, setEngine] = useState('text-davinci-002');
 
-  // var top_entry = app_state.dataset_logs[0]
+
+  //short name:long name
+  const engines = [
+    { 'shortname': 'davinci', 'name': 'davinci', 'default': false },
+    { 'shortname': 'text-davinci-002', 'name': 'text-davinci-002', 'default': true },
+    { 'shortname': 'single_yesno_ft', 'name': 'davinci:ft-personal:single-option-discrimination-1-2022-06-16-01-53-08', 'default': false },
+    { 'shortname': 'davinci-ft-small-1', 'name': "davinci:ft-personal-2022-06-15-00-09-30", 'default': false },
+  ]
 
 
 
@@ -555,20 +568,16 @@ You have a smart AI assistant, which is another program running on the same comp
         </div>
         <div className='engine' onChange={(e) => setEngine(e.target.value)}>
 
-          <label htmlFor="davinci">davinci
-            <input type="radio" value="davinci" name="engine" />
+          {engines.map((eng) => {
+            return (
+              <label key={Math.random()} htmlFor={eng.name} >{eng.shortname}
+                <input type="radio" value={eng.name} name="engine" checked={engine === eng.name} />
 
-          </label>
+              </label>
+            )
+          })
+          }
 
-          <label htmlFor="text-davinci-002">
-            text-davinci-002
-            <input type="radio" value="text-davinci-002" name="engine" defaultChecked={true} />
-          </label>
-
-          <label htmlFor="davinci:ft-personal-2022-06-15-00-09-30">
-            davinci-ft-small-1
-            <input type="radio" value="davinci:ft-personal-2022-06-15-00-09-30" name="engine" />
-          </label>
         </div>
 
       </div>
