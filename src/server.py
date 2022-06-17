@@ -95,32 +95,35 @@ class DatasetExample(db.Model):
     main = db.Column(db.Boolean)
 
 
-# @dataclass
-# class Completion(db.Model):
-#     __tablename__ = "dataset"
-#     id: int
-#     id = db.Column(db.Integer, primary_key=True)
+@dataclass
+class Completion(db.Model):
+    __tablename__ = "dataset"
+    time_id: int
+    time_id = db.Column(db.Integer, primary_key=True)
 
-#     setting: string
-#     setting = db.Column(db.String)
+    setting: string
+    setting = db.Column(db.String)
 
-#     prompt: string
-#     prompt = db.Column(db.String)
+    prompt: string
+    prompt = db.Column(db.String)
 
-#     completion: dict
-#     completion = db.Column(db.Dict)
+    completion: string
+    completion = db.Column(db.String)
 
-#     engine: string
-#     engine = db.Column(db.String)
+    engine: string
+    engine = db.Column(db.String)
 
-#     show: bool
-#     show = db.Column(db.Boolean)
+    temp: float
+    temp = db.Column(db.Float)
 
-#     star: bool
-#     star = db.Column(db.Boolean)
+    n_tokens: int
+    n_tokens = db.Column(db.Integer)
 
-#     notes: string
-#     notes = db.Column(db.String)
+    logprobs: string
+    logprobs = db.Column(db.String)
+
+    notes: string
+    notes = db.Column(db.String)
 
 
 def get_database_connection() -> Connection:
@@ -173,37 +176,44 @@ def update_all_show():
         db.session.commit()
 
 
-# @app.route("/submit_prompt", methods=["POST"])
-# def submit_prompt():
-#     print("submit_prompt")
-#     # get json from request
-#     data = flask.request.get_json()
-#     print(data)
-#     prompt = data["text"]
-#     temp = float(data["temp"])
-#     n_tokens = int(data["n_tokens"])
-#     engine = data["engine"]
-#     # send prompt to openai
-#     response = openai.Completion.create(
-#         engine=engine,
-#         prompt=prompt,
-#         max_tokens=n_tokens,
-#         temperature=temp,
-#         logprobs=1,
-#     )
-#     print("getting completion from openai, engine: " + engine)
-#     completion = response.choices[0].text
-#     logprobs = response.choices[0].logprobs
+def update_all_main():
+    for example in DatasetExample.query.all():
+        example.main = True
+        db.session.commit()
 
-#     data["prompt"] = prompt
-#     data["completion"] = completion
-#     data["logprobs"] = logprobs
-#     data["time_id"] = time.time()
 
-#     db.session.add(Completion(**data))
-#     db.session.commit()
+@app.route("/submit_prompt", methods=["POST"])
+def submit_prompt():
+    print("submit_prompt")
+    # get json from request
+    data = flask.request.get_json()
+    print(data)
+    prompt = data["text"]
+    data["temp"] = float(data["temp"])
+    data["n_tokens"] = int(data["n_tokens"])
+    engine = data["engine"]
+    # send prompt to openai
+    response = openai.Completion.create(
+        engine=engine,
+        prompt=prompt,
+        max_tokens=data["n_tokens"],
+        temperature=data["temp"],
+        logprobs=1,
+    )
+    print("getting completion from openai, engine: " + engine)
+    completion = response.choices[0].text
+    logprobs = response.choices[0].logprobs
 
-#     return flask.jsonify(data)
+    data["prompt"] = prompt
+    data["completion"] = json.dumps(completion)
+    data["logprobs"] = json.dumps(logprobs)
+    data["time_id"] = int(time.time())
+    data.pop("text")
+
+    db.session.add(Completion(**data))
+    db.session.commit()
+
+    return flask.jsonify(data)
 
 
 @app.route("/submit_options", methods=["POST"])
@@ -255,7 +265,7 @@ def update_dataset_log():
 
     stmt = (
         db.session.query(DatasetExample)
-        .filter(DatasetExample.id == data["time_id"])
+        .filter(DatasetExample.time_id == data["time_id"])
         .first()
     )
     stmt.options = data["options_dict"]
@@ -286,6 +296,15 @@ def get_dataset_logs():
     stmt = db.session.query(DatasetExample).all()
     print(stmt[0].options_dict)
     dict_list = [to_dict(x) for x in stmt]
+    # print(dict_list[1])
+    return json.dumps(dict_list)
+
+
+@app.route("/get_logs")
+def get_logs():
+    print("get_logs")
+    stmt = db.session.query(Completion).all()
+    dict_list = [dataclasses.asdict(x) for x in stmt]
     # print(dict_list[1])
     return json.dumps(dict_list)
 

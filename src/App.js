@@ -46,7 +46,7 @@ async function get_dataset_example(data) {
 }
 async function server_update(data, dataset = true) {
   // send text, temperature to Flask backend
-  console.log('updating example', data.id);
+  console.log('updating example', data.time_id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
@@ -112,26 +112,12 @@ async function server_update_option_correct(option, new_val, time_id) {
 
 }
 
-const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
+const Logs = ({ logs, remove_log_by_id, white_space_style, app_state }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
-  var handle_save = (data) => {
-    data['star'] = true;
-    return () => {
-      console.log('saving ID ' + data.id);
-      server_update(data, false);
-    }
-  }
-  var handle_archive = (data) => {
-    console.log('archiving ID ' + data.id);
-    data['show'] = false;
-    return () => {
-      console.log('archiving ID ' + data.id);
-      server_update(data, false);
-      // update logs
-      remove_log_by_id(data.id)
-    }
-  }
+
+
+
   var logs_to_display = logs.map((log) => {
     return log
   });
@@ -140,29 +126,39 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
     return a.time_id - b.time_id
   })
 
-  const jsx = logs_to_display.map((data) =>
-    // const prompt = data["prompt"];
-    // const completion = data["completion"];
-
-    // if (newlines) {
-    //   prompt = prompt.replace(/\n/g, '<br>');
-    //   completion = completion.replace(/\n/g, '<br>');
-    // };
-
-    <tr key={data.time_id} style={{ whiteSpace: white_space_style }}>
-      <td className='prompt_td'>
-        {data.prompt}
-      </td>
-      <td>{data.completion}</td>
-      <td>T=<br />{data.temp} <br /> <br />
-        <br />  <br />
-        <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
-        <br /> <br />
-        <LogButton key={'archive' + data.time_id} fun={handle_archive(data)} label="hide" />
-      </td>
-
-    </tr>
-
+  const jsx = logs_to_display.map((data) => {
+    var engine_name = 'davinci-text-002'
+    if (data.engine) {
+      engine_name = data.engine
+      engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
+    }
+    var save_button = <LogButton id='star' fun={() => app_state.handle_save(data, false)} label="star" />
+    var color = 'white'
+    if (data.star) {
+      save_button = <button id='star' color="yellow" onClick={() => app_state.handle_unsave(data, false)} name="unstar" >unstar </button>
+      color = '#ffd60059'
+    }
+    return (
+      <tr key={data.time_id} style={{ whiteSpace: white_space_style }}>
+        <td className='prompt_td'>
+          {data.prompt}
+        </td>
+        <td><div>
+          {data.completion}
+        </div>
+          <div className="dataset_log_options_td" colSpan={3}>
+            M: {engine_name} <br /> T= {data.temp}
+          </div>
+          <div className="dataset_log_buttons_td" colSpan={3} style={{ backgroundColor: color }}>
+            Completion id: {data.time_id}<br />
+            {save_button}
+            <LogButton key={'archive' + data.time_id} fun={() => app_state.handle_archive(data)} label="archive" />
+            <LogButton key={'hide' + data.time_id} fun={() => app_state.handle_hide(data)} label="hide" />
+          </div>
+        </td>
+      </tr>
+    );
+  }
   );
   return (jsx);
 }
@@ -170,25 +166,7 @@ const DatasetLogs = ({ app_state }) => {
 
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
-  var handle_save = (data) => {
-    var newdata = data
-    newdata['star'] = true;
-    return (e) => {
-      console.log('saving ID ' + newdata.id);
-      server_update(newdata);
-      app_state.update_dataset_example(newdata);
-    }
-  }
-  var handle_archive = (data) => {
-    console.log('archiving ID ' + data.id);
-    var newdata = data
-    newdata['show'] = false;
-    return () => {
-      server_update(newdata);
-      // update logs
-      app_state.update_dataset_example(newdata);
-    }
-  }
+
   const state = {
     'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
     'update_dataset_options': app_state.update_dataset_options,
@@ -203,41 +181,52 @@ const DatasetLogs = ({ app_state }) => {
     //   data.correct_options = current_correct_options
     // }
     var engine_name = 'davinci-text-002'
-    console.log(data.engine)
     if (data.engine) {
       engine_name = data.engine
       engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
     }
+    var save_button = <LogButton id='star' fun={() => app_state.handle_save(data)} label="star" />
+    var color = 'white'
+    if (data.star) {
+      save_button = <button id='star' color="yellow" onClick={() => app_state.handle_unsave(data)} name="unstar" >unstar </button>
+      color = '#ffd60059'
+    }
+
     var example = ""
-    // if (data['show']) {
-    example =
-      <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
-        <td className="dataset_log_options_td">
-          {data.interaction}
-        </td>
-        <td className="dataset_log_options_td" style={{ "padding": "0px" }}>
-          <table key="options_log" className="options_log">
-            <tbody>
-              <OptionsAnswersList key={Math.random()} data={data} state={state} pos_index={pos_index} />
-              <tr>
 
-                <td className="dataset_log_options_td" colSpan={3}>
-                  Model: {engine_name}
+    if (data['show'] === true) {
+      example =
+        <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
+          <td className="dataset_log_options_td">
+            {data.interaction}
+          </td>
+          <td className="dataset_log_options_td" >
+            <table key="options_log" className="options_log">
+              <tbody>
+                <OptionsAnswersList key={Math.random()} data={data} state={state} pos_index={pos_index} />
+                <tr>
 
-                </td>
-              </tr>
-              <tr>
-                <td className="dataset_log_buttons_td" colSpan={3}>
-                  <span> Completion id: {data.time_id} </span>
-                  <LogButton key={'save' + data.time_id} fun={() => handle_save(data)} label="save" />
-                  <LogButton key={'archive' + data.time_id} fun={() => handle_archive(data)} label="hide" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </td>
-      </tr >
-    // }
+                  <td className="dataset_log_options_td" colSpan={3}>
+                    M: {engine_name} A:{data.author}
+
+                  </td>
+                </tr>
+                <tr>
+                  <td className="dataset_log_buttons_td" colSpan={3} style={{ backgroundColor: color }}>
+                    <span> Completion id: {data.time_id} </span>
+                    {save_button}
+                    <LogButton key={'archive' + data.time_id} fun={() => app_state.handle_archive(data)} label="archive" />
+                    <LogButton key={'hide' + data.time_id} fun={() => app_state.handle_hide(data)} label="hide" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr >
+    } else {
+      console.log('data.show: ' + data.show);
+    }
+
     return (
       example
     );
@@ -261,7 +250,7 @@ const DatasetLogs = ({ app_state }) => {
 
 const LogButton = (args) => {
   return (
-    <button onClick={args.fun}>{args.label}</button>
+    <button onClick={args.fun} color={args.color}>{args.label}</button>
   )
 }
 function parse_options(text) {
@@ -388,6 +377,7 @@ You have a smart AI assistant, which is another program running on the same comp
   const [setting, setSetting] = useState(setting_initial);
   const [show_setting, setShowSetting] = useState(false);
   const [engine, setEngine] = useState('text-davinci-002');
+  const [author, setAuthor] = useState('anon');
 
 
   //short name:long name
@@ -421,9 +411,9 @@ You have a smart AI assistant, which is another program running on the same comp
     return text.split(option_start_text).slice(0, -1).join(option_start_text);
 
   }
-  function add_new_option(option_text) {
+  function add_new_option(option_text, author = 'None') {
     var new_options_dict = app_state.prompt_area_options_dict;
-    new_options_dict[option_text] = { correct: false, logprob: 'None' };
+    new_options_dict[option_text] = { correct: false, logprob: 'None', author: author };
     app_state.setPromptAreaOptionsDict(new_options_dict);
   }
   function submit_option() {
@@ -448,7 +438,7 @@ You have a smart AI assistant, which is another program running on the same comp
     }
     // console.log(': ' + option_text);
     // console.log('old options: ' + options);
-    add_new_option(option_text);
+    add_new_option(option_text, 'human');
     // console.log('set_options: ' + options);
     setOptionText('');
   }
@@ -461,7 +451,8 @@ You have a smart AI assistant, which is another program running on the same comp
     const interaction = get_interaction()
     const data = {
       "prompt": prompt, 'setting': setting, 'interaction': interaction,
-      'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict), 'engine': engine
+      'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict), 'engine': engine,
+      "author": author
     }
     //get list of logprobs
     const new_data = await get_dataset_example(data);
@@ -491,18 +482,23 @@ You have a smart AI assistant, which is another program running on the same comp
     setText(new_text + new_options_text);
 
   }
-  function handle_text_change(textarea) {
+  function handle_text_change(textarea, completion = false) {
     const new_text = textarea.value;
     // console.log('handle_text_change, new_text ' + new_text);
     setText(new_text);
     if (new_text !== '') {
       const new_options = parse_options(new_text);
       console.log('handle text new_options: ' + new_options);
-      if (new_options !== Object.keys(app_state.prompt_area_options_dict)) {
-        var new_options_dict = {}
-      };
+      var new_options_dict = app_state.prompt_area_options_dict
+      var option_author = author
+      if (completion) {
+        option_author = engine
+      }
       new_options.forEach(option => {
-        new_options_dict[option] = { correct: false, logprob: NaN };
+        // check if already exists
+        if (!(option in new_options_dict)) {
+          new_options_dict[option] = { correct: false, logprob: NaN, author: option_author };
+        }
       }
       );
       app_state.setPromptAreaOptionsDict(new_options_dict);
@@ -532,7 +528,11 @@ You have a smart AI assistant, which is another program running on the same comp
   function view_dataset() {
     window.location.href = '/dataset';
   }
-
+  var author_color = "white";
+  if (author === "anon") {
+    author_color = "#ff5b00b0";
+  }
+  console.log(author_color)
   // console.log('promptare options: ' + options);
   return (
     <div key='prompt_area' className='prompt_area'>
@@ -543,17 +543,23 @@ You have a smart AI assistant, which is another program running on the same comp
           <label htmlFor="temp">Temp</label>
         </div>
         <div className='setting'>
-          <input key="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(e.target.value)} />
+          <input id="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(e.target.value)} />
           <label htmlFor="n_tokens">NTokens</label>
         </div>
         <div className='setting'>
-          <input key="change_newlines" type="checkbox" value={app_state.newlines} onChange={(e) => app_state.set_newlines(!app_state.newlines)} />
-          <label htmlFor="newlines">Show Newlines</label>
+          <input id="change_newlines" type="checkbox" value={app_state.newlines} onChange={(e) => app_state.set_newlines(!app_state.newlines)} />
+          <label htmlFor="change_newlines">Show Newlines</label>
         </div>
         <div className='setting'>
-          <input key="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
-          <label htmlFor="newlines">Show Setting</label>
+          <input id="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
+          <label htmlFor="change_show_setting">Show Setting</label>
         </div>
+        <div className='setting' style={{ backgroundColor: author_color }} >
+          <input id="change_author" type="text" value={author} onChange={(e) => setAuthor(e.target.value)} style={{ backgroundColor: author_color }} />
+          <label htmlFor="change_author" >Author</label>
+        </div>
+      </div>
+      <div className="settings_bar">
         <div className='engine' onChange={(e) => setEngine(e.target.value)}>
 
           {engines.map((eng) => {
@@ -686,6 +692,41 @@ function App() {
     }
 
   }
+  var handle_save = (data) => {
+    var newdata = data
+    newdata['star'] = true;
+    console.log('saving ID ' + newdata.time_id);
+    server_update(newdata);
+    update_dataset_example(newdata);
+
+  }
+
+  var handle_unsave = (data) => {
+    var newdata = data
+    newdata['star'] = false;
+    console.log('unsaving ID ' + newdata.time_id);
+    server_update(newdata);
+    update_dataset_example(newdata);
+
+  }
+  var handle_hide = (data) => {
+    console.log('hiding ID ' + data.time_id);
+    var newdata = data
+    newdata['show'] = false;
+    server_update(newdata);
+    // update logs
+    update_dataset_example(newdata);
+
+  }
+  var handle_archive = (data) => {
+    console.log('archiving ID ' + data.time_id);
+    var newdata = data
+    newdata['main'] = false;
+    newdata['show'] = false;
+    server_update(newdata);
+    // update logs
+    update_dataset_example(newdata);
+  }
 
   const remove_log = (id, dataset = 'log') => {
     if (dataset === 'log') {
@@ -719,6 +760,11 @@ function App() {
     setPromptAreaOptionsDict: setPromptAreaOptionsDict,
     get_first_time_id: get_first_time_id,
     update_dataset_example: update_dataset_example,
+    handle_save: handle_save,
+    handle_unsave: handle_unsave,
+    handle_hide: handle_hide,
+    handle_archive: handle_archive,
+
   }
 
 
@@ -755,14 +801,11 @@ function App() {
               <td>
                 Completion
               </td>
-              <td>
-                _
-              </td>
             </tr>
           </thead>
           <tbody >
             <Logs key='logs' logs={logs} remove_log_by_id={remove_log}
-              white_space_style={white_space_style} />
+              white_space_style={white_space_style} app_state={app_state} />
           </tbody>
         </table>
       </div>
