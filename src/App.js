@@ -571,7 +571,7 @@ You have a smart AI assistant, which is another program running on the same comp
           {engines.map((eng) => {
             return (
               <label key={Math.random()} htmlFor={eng.name} >{eng.shortname}
-                <input type="radio" value={eng.name} name="engine" checked={engine === eng.name} />
+                <input type="radio" value={eng.name} name="engine" checked={engine === eng.name} onChange={(e) => setEngine(e.target.value)} />
 
               </label>
             )

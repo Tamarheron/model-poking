@@ -14,6 +14,7 @@ from sqlalchemy.engine import Connection
 from dataclasses import dataclass
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, Session
+import dataclasses
 
 
 app = Flask(__name__)
@@ -26,11 +27,10 @@ app = Flask(__name__)
 # app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or "DEVELOPMENT SECRET KEY"
 # app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False  # get rid of warning
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///test_database.db:"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/test_database.db"
 
 db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
-
 
 
 @dataclass
@@ -204,6 +204,7 @@ def get_answer():
     data["answer_logprobs"] = answer_logprobs
     data["time_id"] = str(int(time.time()))
     data["completion"] = response.choices[0].text
+    make_options_dict(data)
     update_options_dict(data)
     print(data["options_dict"])
     data.pop("options")
@@ -214,7 +215,7 @@ def get_answer():
 
     # convert options_dict (now list of type Option) back to dict
     data["options_dict"] = {
-        option.text: option.__dict__ for option in data["options_dict"]
+        option.text: dataclasses.asdict(option) for option in data["options_dict"]
     }
 
     return json.dumps(data)
@@ -226,17 +227,17 @@ def update_dataset_log():
     # get id from request
     data = flask.request.get_json()
     # print(data)
-    with db.session as session:
-        stmt = (
-            session.query(DatasetExample)
-            .filter(DatasetExample.id == data["time_id"])
-            .first()
-        )
-        stmt.options = data["options_dict"]
-        stmt.notes = data["notes"]
-        stmt.show = data["show"]
-        stmt.star = data["star"]
-        session.commit()
+
+    stmt = (
+        db.session.query(DatasetExample)
+        .filter(DatasetExample.id == data["time_id"])
+        .first()
+    )
+    stmt.options = data["options_dict"]
+    stmt.notes = data["notes"]
+    stmt.show = data["show"]
+    stmt.star = data["star"]
+    db.session.commit()
     return "saved"
 
 
@@ -257,9 +258,8 @@ def update_correct_options():
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
     print("get_dataset_logs")
-    with Session(engine) as session:
-        stmt = session.query(DatasetExample).all()
-    return json.dumps([dict(x) for x in stmt])
+    stmt = db.session.query(DatasetExample).all()
+    return json.dumps([dataclasses.asdict(x) for x in stmt])
 
 
 if __name__ == "__main__":
