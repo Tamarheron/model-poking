@@ -1,3 +1,4 @@
+from imaplib import IMAP4_stream
 import flask
 import json
 from flask import Flask
@@ -15,7 +16,12 @@ def archive(id, dataset=False):
     with open(from_file, "r") as f:
         data = f.read()
 
+    # save to temporary file
+    with open("tmp.txt", "w") as f:
+        f.write(data)
+
     line_to_remove = None
+
     with open(from_file, "w") as f:
         for line in data.split("\n"):
             if line:
@@ -56,6 +62,23 @@ def add_to_saved(id, dataset=False):
                     f.write(json.dumps(line) + "\n")
 
 
+def make_options_dict(item):
+    item["options_dict"] = {}
+    for i, option in enumerate(item["options"]):
+        logprob = item["answer_logprobs"].get(f" {i+1}", "None")
+        correct_options = item.get("correct_options", [])
+        item["options_dict"][option] = {
+            "correct": i in correct_options,
+            "logprob": logprob,
+        }
+
+
+def update_options_dict(item):
+    for i, option in enumerate(item["options"]):
+        logprob = item["answer_logprobs"].get(f" {i+1}", "None")
+        item["options_dict"][option]["logprob"] = logprob
+
+
 def get_logs_from_file(dataset=False):
     filename = "dataset.txt" if dataset else "log.txt"
     with open(filename, "r") as f:
@@ -63,9 +86,13 @@ def get_logs_from_file(dataset=False):
     logs = []
     for line in data.split("\n"):
         if line:
-            logs.append(json.loads(line))
+            item = json.loads(line)
+            if dataset:
+                if not "options_dict" in item:
+                    make_options_dict(item)
+            logs.append(item)
+
     logs.reverse()
-    print(logs)
     return json.dumps(logs)
 
 
@@ -78,14 +105,16 @@ def submit_prompt():
     prompt = data["text"]
     temp = float(data["temp"])
     n_tokens = int(data["n_tokens"])
+    engine = data["engine"]
     # send prompt to openai
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine=engine,
         prompt=prompt,
         max_tokens=n_tokens,
         temperature=temp,
         logprobs=1,
     )
+    print("getting completion from openai, engine: " + engine)
     completion = response.choices[0].text
     logprobs = response.choices[0].logprobs
 
@@ -104,21 +133,24 @@ def get_answer():
     data = flask.request.get_json()
     print(data)
     prompt = data["prompt"]
+    engine = data["engine"]
     # send prompt to openai
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine=engine,
         prompt=prompt,
         max_tokens=1,
         temperature=0,
         logprobs=5,
     )
+    print(response.choices[0])
     logprobs = response.choices[0].logprobs.top_logprobs
 
     answer_logprobs = logprobs[0]
     data["answer_logprobs"] = answer_logprobs
     data["time_id"] = str(int(time.time()))
     data["completion"] = response.choices[0].text
-
+    update_options_dict(data)
+    print(data["options_dict"])
     log_to_file(data, dataset=True)
 
     return json.dumps(data)
@@ -129,10 +161,37 @@ def save_dataset_log():
     print("save_dataset_log")
     # get id from request
     data = flask.request.get_json()
-    print(data)
+    # print(data)
 
     add_to_saved(data["time_id"], dataset=True)
     return "saved"
+
+
+@app.route("/update_correct_options", methods=["POST"])
+def update_correct_options():
+    print("update_correct_options")
+    # get id from request
+    data = flask.request.get_json()
+    print(data)
+
+    id = data["time_id"]
+    option = data["option"]
+    new_val = data["new_val"]
+    for file in ["dataset", "archived_dataset_log", "dataset_saved"]:
+        with open(file + ".txt", "r") as f:
+            filedata = f.read()
+        with open("tmp.txt", "w") as f:
+            f.write(filedata)
+        with open(file + ".txt", "w") as f:
+            for line in filedata.split("\n"):
+                if line:
+                    line = json.loads(line)
+                    if line:
+                        if int(line["time_id"]) == int(id):
+                            if option in line["options_dict"]:
+                                line["options_dict"][option]["correct"] = new_val
+                        f.write(json.dumps(line) + "\n")
+    return "updated"
 
 
 @app.route("/save_log", methods=["POST"])

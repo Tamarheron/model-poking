@@ -83,13 +83,34 @@ table {
   font-weight: bold;
 }
 
+.dataset_log_buttons_td {
+  width: 100%;
+  text-align: right;
+  border: 0px;
+}
+
 .setting {
-  width: 90%;
+  width: 30%;
   margin-bottom: 10px;
-  margin-left: 10px;
+  margin-left: 5px;
   margin-right: 10px;
   display: flex;
 }
+
+input.radio {
+
+  width: auto;
+}
+
+input.checkbox {
+  width: 10%;
+}
+
+label {
+  float: left;
+  margin-left: 2px;
+}
+
 
 .settings_bar {
   width: 100%;
@@ -113,6 +134,7 @@ input[type="number"] {
 
 .dataset_log_options_td {
   padding: 3px;
+  text-align: left;
 }
 
 
@@ -144,4 +166,11 @@ input[type="number"] {
 .prompt_td {
   padding: 5px;
   text-align: left;
+}
+
+.prompt_textarea {
+  width: 100%;
+  max-height: 30cm;
+  min-height: 10cm;
+
 }
