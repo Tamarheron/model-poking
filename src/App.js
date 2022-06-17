@@ -95,6 +95,7 @@ async function get_logs_from_server() {
 async function get_dataset_logs_from_server() {
   const raw = await fetch('/get_dataset_logs')
   const logs = await raw.json()
+  console.log('logs[0].show: ' + logs[0].show);
   return logs
 }
 
@@ -122,6 +123,7 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
     }
   }
   var handle_archive = (data) => {
+    console.log('archiving ID ' + data.id);
     data['show'] = false;
     return () => {
       console.log('archiving ID ' + data.id);
@@ -178,6 +180,7 @@ const DatasetLogs = ({ app_state }) => {
     }
   }
   var handle_archive = (data) => {
+    console.log('archiving ID ' + data.id);
     var newdata = data
     newdata['show'] = false;
     return () => {
@@ -226,8 +229,8 @@ const DatasetLogs = ({ app_state }) => {
               <tr>
                 <td className="dataset_log_buttons_td" colSpan={3}>
                   <span> Completion id: {data.time_id} </span>
-                  <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
-                  <LogButton key={'archive' + data.time_id} fun={handle_archive(data)} label="hide" />
+                  <LogButton key={'save' + data.time_id} fun={() => handle_save(data)} label="save" />
+                  <LogButton key={'archive' + data.time_id} fun={() => handle_archive(data)} label="hide" />
                 </td>
               </tr>
             </tbody>
@@ -616,6 +619,7 @@ function App() {
     })
     get_dataset_logs_from_server().then(loaded_logs => {
       setDatasetLogs(loaded_logs)
+      console.log('loadedlogs[0].show:', loaded_logs[0].show);
     })
 
   }, []);

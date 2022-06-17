@@ -91,6 +91,9 @@ class DatasetExample(db.Model):
     completion: string
     completion = db.Column(db.String)
 
+    main: bool
+    main = db.Column(db.Boolean)
+
 
 # @dataclass
 # class Completion(db.Model):
