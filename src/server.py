@@ -1,65 +1,127 @@
-from imaplib import IMAP4_stream
+import string
 import flask
 import json
 from flask import Flask
 import os
 import argparse
+from importlib_metadata import metadata
 import openai
 import time
+import os
+from flask_sqlalchemy import SQLAlchemy
+from requests import session
+from sqlalchemy.engine import Connection
+from dataclasses import dataclass
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, Session
+
 
 app = Flask(__name__)
 
+# database_url = os.getenv("DATABASE_URL")
+# if database_url:
+#     app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
+#         "postgres://", "postgresql://"
+#     )
+# app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or "DEVELOPMENT SECRET KEY"
+# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False  # get rid of warning
 
-def archive(id, dataset=False):
-    from_file = "dataset.txt" if dataset else "log.txt"
-    to_file = "archived_dataset_log.txt" if dataset else "archived_log.txt"
-    with open(from_file, "r") as f:
-        data = f.read()
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///test_database.db:"
 
-    # save to temporary file
-    with open("tmp.txt", "w") as f:
-        f.write(data)
-
-    line_to_remove = None
-
-    with open(from_file, "w") as f:
-        for line in data.split("\n"):
-            if line:
-                line = json.loads(line)
-                if int(line["time_id"]) != int(id):
-                    f.write(json.dumps(line) + "\n")
-                else:
-                    line_to_remove = line
-                    # write to archive
-    with open(to_file, "a") as f:
-        f.write(json.dumps(line_to_remove) + "\n")
+db: SQLAlchemy = SQLAlchemy(app)
+session = db.session
 
 
-def log_to_file(data, dataset=False):
-    filename = "dataset.txt" if dataset else "log.txt"
-    # save json, preserving newlines
-    data["prompt"].replace("\n", "\\n")
-    data["completion"].replace("\n", "\\n")
-    with open(filename, "a") as f:
-        f.write(
-            json.dumps(
-                data,
-            )
-            + "\n"
-        )
+
+@dataclass
+class Option(db.Model):
+    __tablename__ = "option"
+    id: string
+    id = db.Column(db.String, primary_key=True)
+    text: string
+    text = db.Column(db.String)
+    position: int
+    position = db.Column(db.Integer)
+    author: string
+    author = db.Column(db.String)
+    logprob: float
+    logprob = db.Column(db.Float)
+    correct: bool
+    correct = db.Column(db.Boolean)
+    example_id: int
+    example_id = db.Column(db.Integer, db.ForeignKey("dataset_example.time_id"))
+    dataset_example = db.relationship("DatasetExample", back_populates="options_dict")
 
 
-def add_to_saved(id, dataset=False):
-    filename = "dataset" if dataset else "log"
-    with open(filename + ".txt", "r") as f:
-        data = f.read()
-    filename += "_saved.txt"
-    with open(filename, "a") as f:
-        for line in data.split("\n"):
-            if line:
-                line = json.loads(line)
-                if int(line["time_id"]) == int(id):
-                    f.write(json.dumps(line) + "\n")
+@dataclass
+class DatasetExample(db.Model):
+    __tablename__ = "dataset_example"
+    time_id: int
+    time_id = db.Column(db.Integer, primary_key=True)
+
+    setting: string
+    setting = db.Column(db.String)
+
+    prompt: string
+    prompt = db.Column(db.String)
+
+    interaction: string
+    interaction = db.Column(db.String)
+
+    answer_logprobs: dict
+    answer_logprobs = db.Column(db.JSON)
+
+    options_dict = db.relationship("Option", back_populates="dataset_example")
+
+    engine: string
+    engine = db.Column(db.String)
+
+    author: string
+    author = db.Column(db.String)
+
+    show: bool
+    show = db.Column(db.Boolean)
+
+    star: bool
+    star = db.Column(db.Boolean)
+
+    notes: string
+    notes = db.Column(db.String)
+
+    completion: string
+    completion = db.Column(db.String)
+
+
+# @dataclass
+# class Completion(db.Model):
+#     __tablename__ = "dataset"
+#     id: int
+#     id = db.Column(db.Integer, primary_key=True)
+
+#     setting: string
+#     setting = db.Column(db.String)
+
+#     prompt: string
+#     prompt = db.Column(db.String)
+
+#     completion: dict
+#     completion = db.Column(db.Dict)
+
+#     engine: string
+#     engine = db.Column(db.String)
+
+#     show: bool
+#     show = db.Column(db.Boolean)
+
+#     star: bool
+#     star = db.Column(db.Boolean)
+
+#     notes: string
+#     notes = db.Column(db.String)
+
+
+def get_database_connection() -> Connection:
+    return db.session.connection()
 
 
 def make_options_dict(item):
@@ -69,61 +131,54 @@ def make_options_dict(item):
         correct_options = item.get("correct_options", [])
         item["options_dict"][option] = {
             "correct": i in correct_options,
-            "logprob": logprob,
+            "logprob": -100.0 if logprob == "None" else float(logprob),
         }
 
 
 def update_options_dict(item):
-    for i, option in enumerate(item["options"]):
-        logprob = item["answer_logprobs"].get(f" {i+1}", "None")
-        item["options_dict"][option]["logprob"] = logprob
+    current = item["options_dict"]
+    item["options_dict"] = []
+    for i, text in enumerate(current.keys()):
+        d = current.get(text)
+        d["position"] = i
+        d["example_id"] = item["time_id"]
+        d["text"] = text
+        d["logprob"] = -100.0 if d["logprob"] == "None" else float(d["logprob"])
+        d["id"] = text + str(item["time_id"])
+        item["options_dict"].append(Option(**d))
 
 
-def get_logs_from_file(dataset=False):
-    filename = "dataset.txt" if dataset else "log.txt"
-    with open(filename, "r") as f:
-        data = f.read()
-    logs = []
-    for line in data.split("\n"):
-        if line:
-            item = json.loads(line)
-            if dataset:
-                if not "options_dict" in item:
-                    make_options_dict(item)
-            logs.append(item)
+# @app.route("/submit_prompt", methods=["POST"])
+# def submit_prompt():
+#     print("submit_prompt")
+#     # get json from request
+#     data = flask.request.get_json()
+#     print(data)
+#     prompt = data["text"]
+#     temp = float(data["temp"])
+#     n_tokens = int(data["n_tokens"])
+#     engine = data["engine"]
+#     # send prompt to openai
+#     response = openai.Completion.create(
+#         engine=engine,
+#         prompt=prompt,
+#         max_tokens=n_tokens,
+#         temperature=temp,
+#         logprobs=1,
+#     )
+#     print("getting completion from openai, engine: " + engine)
+#     completion = response.choices[0].text
+#     logprobs = response.choices[0].logprobs
 
-    logs.reverse()
-    return json.dumps(logs)
+#     data["prompt"] = prompt
+#     data["completion"] = completion
+#     data["logprobs"] = logprobs
+#     data["time_id"] = time.time()
 
+#     db.session.add(Completion(**data))
+#     db.session.commit()
 
-@app.route("/submit_prompt", methods=["POST"])
-def submit_prompt():
-    print("submit_prompt")
-    # get json from request
-    data = flask.request.get_json()
-    print(data)
-    prompt = data["text"]
-    temp = float(data["temp"])
-    n_tokens = int(data["n_tokens"])
-    engine = data["engine"]
-    # send prompt to openai
-    response = openai.Completion.create(
-        engine=engine,
-        prompt=prompt,
-        max_tokens=n_tokens,
-        temperature=temp,
-        logprobs=1,
-    )
-    print("getting completion from openai, engine: " + engine)
-    completion = response.choices[0].text
-    logprobs = response.choices[0].logprobs
-
-    data["prompt"] = prompt
-    data["completion"] = completion
-    data["logprobs"] = logprobs
-    data["time_id"] = time.time()
-    log_to_file(data)
-    return flask.jsonify(data)
+#     return flask.jsonify(data)
 
 
 @app.route("/submit_options", methods=["POST"])
@@ -151,19 +206,37 @@ def get_answer():
     data["completion"] = response.choices[0].text
     update_options_dict(data)
     print(data["options_dict"])
-    log_to_file(data, dataset=True)
+    data.pop("options")
+
+    print(db.session)
+    db.session.add(DatasetExample(**data))
+    db.session.commit()
+
+    # convert options_dict (now list of type Option) back to dict
+    data["options_dict"] = {
+        option.text: option.__dict__ for option in data["options_dict"]
+    }
 
     return json.dumps(data)
 
 
-@app.route("/save_dataset_log", methods=["POST"])
-def save_dataset_log():
-    print("save_dataset_log")
+@app.route("/update_dataset_log", methods=["POST"])
+def update_dataset_log():
+    print("update_dataset_log")
     # get id from request
     data = flask.request.get_json()
     # print(data)
-
-    add_to_saved(data["time_id"], dataset=True)
+    with db.session as session:
+        stmt = (
+            session.query(DatasetExample)
+            .filter(DatasetExample.id == data["time_id"])
+            .first()
+        )
+        stmt.options = data["options_dict"]
+        stmt.notes = data["notes"]
+        stmt.show = data["show"]
+        stmt.star = data["star"]
+        session.commit()
     return "saved"
 
 
@@ -173,68 +246,20 @@ def update_correct_options():
     # get id from request
     data = flask.request.get_json()
     print(data)
-
     id = data["time_id"]
     option = data["option"]
     new_val = data["new_val"]
-    for file in ["dataset", "archived_dataset_log", "dataset_saved"]:
-        with open(file + ".txt", "r") as f:
-            filedata = f.read()
-        with open("tmp.txt", "w") as f:
-            f.write(filedata)
-        with open(file + ".txt", "w") as f:
-            for line in filedata.split("\n"):
-                if line:
-                    line = json.loads(line)
-                    if line:
-                        if int(line["time_id"]) == int(id):
-                            if option in line["options_dict"]:
-                                line["options_dict"][option]["correct"] = new_val
-                        f.write(json.dumps(line) + "\n")
-    return "updated"
-
-
-@app.route("/save_log", methods=["POST"])
-def save_log():
-    print("save_log")
-    # get json from request
-    data = flask.request.get_json()
-
-    add_to_saved(data["time_id"])
-    return "saved"
-
-
-@app.route("/get_logs")
-def get_logs():
-    return get_logs_from_file()
+    stmt = db.session.query(DatasetExample).filter(DatasetExample.id == id).first()
+    stmt.options[option]["correct"] = new_val
+    db.session.commit()
 
 
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
-    return get_logs_from_file(dataset=True)
-
-
-@app.route("/archive_log", methods=["POST"])
-def archive_log():
-    print("archive_log")
-    # get string from request
-    data = flask.request.get_json()
-
-    print(data)
-    id = data["time_id"]
-    archive(id)
-    return "archived"
-
-
-@app.route("/archive_dataset_log", methods=["POST"])
-def archive_dataset_log():
-    print("archive_dataset_log")
-    # get string from request
-    data = flask.request.get_json()
-    print(data)
-    id = data["time_id"]
-    archive(id, dataset=True)
-    return "archived"
+    print("get_dataset_logs")
+    with Session(engine) as session:
+        stmt = session.query(DatasetExample).all()
+    return json.dumps([dict(x) for x in stmt])
 
 
 if __name__ == "__main__":
@@ -246,12 +271,11 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=5004)
     args = parser.parse_args()
     port = args.port
-    aws = True
-    push_to_aws = True
     if args.debug:
         app.debug = True
-        push_to_aws = False
+    # app.config["SERVER_NAME"] = "flask-api"
     openai.api_key = os.getenv("OPENAI_API_KEY")
+
     app.run(
         host="0.0.0.0" if args.public else "127.0.0.1",
         port=port,
