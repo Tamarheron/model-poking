@@ -1,6 +1,7 @@
 
 import './App.css';
 import React, { useEffect, useState } from 'react';
+import { conditionalExpression } from '@babel/types';
 
 
 
@@ -43,35 +44,19 @@ async function get_dataset_example(data) {
   return response;
   // return { '0': 0.5, '1': 0.5 };
 }
-async function server_save(id, dataset = false) {
+async function server_update(data, dataset = true) {
   // send text, temperature to Flask backend
-  console.log('saving example', id);
+  console.log('updating example', data.id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({ 'time_id': id })
+    body: JSON.stringify(data)
   }
 
-  var path = '/save_log'
+  var path = '/update_log'
   if (dataset) {
-    path = '/save_dataset_log'
-  }
-  fetch(path, args)
-}
-async function server_archive(id, dataset = false) {
-  // send text, temperature to Flask backend
-  console.log('archiving example', id);
-  const headers = { 'Content-Type': 'application/json' }
-  const args = {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify({ 'time_id': id })
-  }
-
-  var path = '/archive_log'
-  if (dataset) {
-    path = '/archive_dataset_log'
+    path = '/update_dataset_log'
   }
   fetch(path, args)
 }
@@ -129,22 +114,20 @@ async function server_update_option_correct(option, new_val, time_id) {
 const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
-  var handle_save = (id) => {
-    return (e) => {
-      console.log('saving ID ' + id);
-      server_save(id, false);
-      let el = e.target
-      el.disabled = true;
-      el.innerHTML = 'Saved'
-      el.backgroundColor = '#00ff00'
+  var handle_save = (data) => {
+    data['star'] = true;
+    return () => {
+      console.log('saving ID ' + data.id);
+      server_update(data, false);
     }
   }
-  var handle_archive = (id) => {
+  var handle_archive = (data) => {
+    data['show'] = false;
     return () => {
-      console.log('archiving ID ' + id);
-      server_archive(id, false);
+      console.log('archiving ID ' + data.id);
+      server_update(data, false);
       // update logs
-      remove_log_by_id(id)
+      remove_log_by_id(data.id)
     }
   }
   var logs_to_display = logs.map((log) => {
@@ -171,9 +154,9 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
       <td>{data.completion}</td>
       <td>T=<br />{data.temp} <br /> <br />
         <br />  <br />
-        <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
+        <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
         <br /> <br />
-        <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
+        <LogButton key={'archive' + data.time_id} fun={handle_archive(data)} label="hide" />
       </td>
 
     </tr>
@@ -185,21 +168,22 @@ const DatasetLogs = ({ app_state }) => {
 
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
-  var handle_save = (id) => {
+  var handle_save = (data) => {
+    var newdata = data
+    newdata['star'] = true;
     return (e) => {
-      console.log('saving ID ' + id);
-      server_save(id, true);
-      let el = e.target
-      el.disabled = true;
-      el.innerHTML = 'Saved'
-      el.backgroundColor = '#00ff00'
+      console.log('saving ID ' + newdata.id);
+      server_update(newdata);
+      app_state.update_dataset_example(newdata);
     }
   }
-  var handle_archive = (id) => {
+  var handle_archive = (data) => {
+    var newdata = data
+    newdata['show'] = false;
     return () => {
-      server_archive(id, true);
+      server_update(newdata);
       // update logs
-      app_state.remove_log(id, 'dataset')
+      app_state.update_dataset_example(newdata);
     }
   }
   const state = {
@@ -216,12 +200,14 @@ const DatasetLogs = ({ app_state }) => {
     //   data.correct_options = current_correct_options
     // }
     var engine_name = 'davinci-text-002'
-    if (data.engine !== undefined) {
+    console.log(data.engine)
+    if (data.engine) {
       engine_name = data.engine
       engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
     }
-    return (
-
+    var example = ""
+    // if (data['show']) {
+    example =
       <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
         <td className="dataset_log_options_td">
           {data.interaction}
@@ -240,18 +226,17 @@ const DatasetLogs = ({ app_state }) => {
               <tr>
                 <td className="dataset_log_buttons_td" colSpan={3}>
                   <span> Completion id: {data.time_id} </span>
-                  <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
-                  <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
+                  <LogButton key={'save' + data.time_id} fun={handle_save(data)} label="save" />
+                  <LogButton key={'archive' + data.time_id} fun={handle_archive(data)} label="hide" />
                 </td>
               </tr>
             </tbody>
           </table>
         </td>
-
-
-
       </tr >
-
+    // }
+    return (
+      example
     );
   }
   var logs_to_display = app_state.dataset_logs.map((log) => {
@@ -656,6 +641,15 @@ function App() {
     })
     setDatasetLogs(new_dataset_logs)
   }
+  const update_dataset_example = (data) => {
+    const new_dataset_logs = dataset_logs.map(log => {
+      if (log.time_id === data.time_id) {
+        log = data;
+      }
+      return log;
+    })
+    setDatasetLogs(new_dataset_logs)
+  }
   const get_first_time_id = () => {
     if (dataset_logs.length > 0) {
       return dataset_logs[0].time_id;
@@ -719,7 +713,8 @@ function App() {
     update_prompt_area_options_dict: update_prompt_area_options_dict,
     // update_first_dataset_option: update_first_dataset_option,
     setPromptAreaOptionsDict: setPromptAreaOptionsDict,
-    get_first_time_id: get_first_time_id
+    get_first_time_id: get_first_time_id,
+    update_dataset_example: update_dataset_example,
   }
 
 

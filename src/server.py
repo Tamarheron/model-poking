@@ -27,7 +27,7 @@ app = Flask(__name__)
 # app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or "DEVELOPMENT SECRET KEY"
 # app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False  # get rid of warning
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/test_database.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///test_database.db"
 
 db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
@@ -148,6 +148,28 @@ def update_options_dict(item):
         item["options_dict"].append(Option(**d))
 
 
+def file_to_db(filename):
+    with open(filename, "r") as f:
+        data = f.readlines()
+    for line in data:
+        item = json.loads(line)
+        update_options_dict(item)
+        if filename == "dataset.txt":
+            item["show"] = True
+        print(item["show"])
+        item.pop("options")
+        if item.get("correct_options"):
+            item.pop("correct_options")
+        db.session.add(DatasetExample(**item))
+        db.session.commit()
+
+
+def update_all_show():
+    for example in DatasetExample.query.all():
+        example.show = True
+        db.session.commit()
+
+
 # @app.route("/submit_prompt", methods=["POST"])
 # def submit_prompt():
 #     print("submit_prompt")
@@ -259,20 +281,39 @@ def update_correct_options():
 def get_dataset_logs():
     print("get_dataset_logs")
     stmt = db.session.query(DatasetExample).all()
-    return json.dumps([dataclasses.asdict(x) for x in stmt])
+    print(stmt[0].options_dict)
+    dict_list = [to_dict(x) for x in stmt]
+    # print(dict_list[1])
+    return json.dumps(dict_list)
+
+
+def to_dict(example):
+    d = dataclasses.asdict(example)
+    d["options_dict"] = {
+        option.text: dataclasses.asdict(option) for option in example.options_dict
+    }
+    return d
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--public", action="store_true")
     parser.add_argument("--debug", action="store_true")
-
+    parser.add_argument("--file_to_db", action="store_true")
+    parser.add_argument("--update_all_show", action="store_true")
     # add argument for port
     parser.add_argument("--port", type=int, default=5004)
     args = parser.parse_args()
     port = args.port
+    if args.file_to_db:
+        file_to_db("dataset.txt")
+        exit()
+    if args.update_all_show:
+        update_all_show()
+        exit()
     if args.debug:
         app.debug = True
+
     # app.config["SERVER_NAME"] = "flask-api"
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
