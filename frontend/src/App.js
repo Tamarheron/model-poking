@@ -3,6 +3,16 @@ import './App.css';
 import React, { useEffect, useState } from 'react';
 
 
+//short name:long name
+const engines = {
+  'davinci': { 'shortname': 'davinci', 'default': false, 'vshortname': 'dv' },
+  'text-davinci-002': { 'shortname': 'text-davinci-002', 'default': true, 'vshortname': 'dv-2' },
+  'davinci:ft-personal:single-option-discrimination-1-2022-06-16-01-53-08': {
+    'shortname': 'single_yesno_ft',
+    'default': false, 'vshortname': 'dvftdis1'
+  },
+  'davinci:ft-personal-2022-06-15-00-09-30': { 'shortname': "davinci-ft-small-1", 'default': false, 'vshortname': 'dvftgen1' },
+}
 
 function api_call(text, temp = 0, n_tokens = 50, engine) {
 
@@ -43,35 +53,19 @@ async function get_dataset_example(data) {
   return response;
   // return { '0': 0.5, '1': 0.5 };
 }
-async function server_save(id, dataset = false) {
+async function server_update(data, dataset = true) {
   // send text, temperature to Flask backend
-  console.log('saving example', id);
+  console.log('updating example', data.time_id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({ 'time_id': id })
+    body: JSON.stringify(data)
   }
 
-  var path = '/save_log'
+  var path = '/update_log'
   if (dataset) {
-    path = '/save_dataset_log'
-  }
-  fetch(path, args)
-}
-async function server_archive(id, dataset = false) {
-  // send text, temperature to Flask backend
-  console.log('archiving example', id);
-  const headers = { 'Content-Type': 'application/json' }
-  const args = {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify({ 'time_id': id })
-  }
-
-  var path = '/archive_log'
-  if (dataset) {
-    path = '/archive_dataset_log'
+    path = '/update_dataset_log'
   }
   fetch(path, args)
 }
@@ -110,43 +104,17 @@ async function get_logs_from_server() {
 async function get_dataset_logs_from_server() {
   const raw = await fetch('/get_dataset_logs')
   const logs = await raw.json()
+  console.log('logs[0].show: ' + logs[0].show);
   return logs
 }
 
-async function server_update_option_correct(option, new_val, time_id) {
-  console.log('updating option correct', time_id, option, new_val);
-  const headers = { 'Content-Type': 'application/json' }
-  const args = {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify({ 'time_id': time_id, 'option': option, 'new_val': new_val })
-  }
 
-  fetch('/update_correct_options', args)
-
-}
-
-const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
+const Logs = ({ logs, remove_log_by_id, white_space_style, app_state }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
-  var handle_save = (id) => {
-    return (e) => {
-      console.log('saving ID ' + id);
-      server_save(id, false);
-      let el = e.target
-      el.disabled = true;
-      el.innerHTML = 'Saved'
-      el.backgroundColor = '#00ff00'
-    }
-  }
-  var handle_archive = (id) => {
-    return () => {
-      console.log('archiving ID ' + id);
-      server_archive(id, false);
-      // update logs
-      remove_log_by_id(id)
-    }
-  }
+
+
+
   var logs_to_display = logs.map((log) => {
     return log
   });
@@ -155,105 +123,153 @@ const Logs = ({ logs, remove_log_by_id, white_space_style }) => {
     return a.time_id - b.time_id
   })
 
-  const jsx = logs_to_display.map((data) =>
-    // const prompt = data["prompt"];
-    // const completion = data["completion"];
-
-    // if (newlines) {
-    //   prompt = prompt.replace(/\n/g, '<br>');
-    //   completion = completion.replace(/\n/g, '<br>');
-    // };
-
-    <tr key={data.time_id} style={{ whiteSpace: white_space_style }}>
-      <td className='prompt_td'>
-        {data.prompt}
-      </td>
-      <td>{data.completion}</td>
-      <td>T=<br />{data.temp} <br /> <br />
-        <br />  <br />
-        <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
-        <br /> <br />
-        <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
-      </td>
-
-    </tr>
-
-  );
-  return (jsx);
-}
-const DatasetLogs = ({ app_state }) => {
-
-  // console.log(JSON.parse(logs[0]));
-  // console.log(logs[0]["prompt"]);
-  var handle_save = (id) => {
-    return (e) => {
-      console.log('saving ID ' + id);
-      server_save(id, true);
-      let el = e.target
-      el.disabled = true;
-      el.innerHTML = 'Saved'
-      el.backgroundColor = '#00ff00'
-    }
-  }
-  var handle_archive = (id) => {
-    return () => {
-      server_archive(id, true);
-      // update logs
-      app_state.remove_log(id, 'dataset')
-    }
-  }
-  const state = {
-    'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
-    'update_dataset_options': app_state.update_dataset_options,
-    'get_first_time_id': app_state.get_first_time_id,
-
-  }
-
-  // console.log('dataset_data ', data.map(d => d['correct_options']));
-  const OptionsLog = ({ data, pos_index }) => {
-    //for the first example, if we've already submitted the prompt and got answers, the correct options should track
-    // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
-    //   data.correct_options = current_correct_options
-    // }
+  const jsx = logs_to_display.map((data) => {
     var engine_name = 'davinci-text-002'
-    if (data.engine !== undefined) {
+    if (data.engine) {
       engine_name = data.engine
       engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
     }
+    var save_button = <LogButton id='star' fun={() => app_state.handle_save(data, false)} label="star" />
+    var color = 'white'
+    if (data.star) {
+      save_button = <button id='star' color="yellow" onClick={() => app_state.handle_unsave(data, false)} name="unstar" >unstar </button>
+      color = '#ffd60059'
+    }
     return (
-
-      <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
-        <td className="dataset_log_options_td">
-          {data.interaction}
+      <tr key={data.time_id} style={{ whiteSpace: white_space_style }}>
+        <td className='prompt_td'>
+          {data.prompt}
         </td>
-        <td className="dataset_log_options_td" style={{ "padding": "0px" }}>
-          <table key="options_log" className="options_log">
-            <tbody>
-              <OptionsAnswersList key={Math.random()} data={data} state={state} pos_index={pos_index} />
+        <td><div>
+          {data.completion}
+        </div>
+          <div className="dataset_log_options_td" colSpan={3}>
+            M: {engine_name} <br /> T= {data.temp}
+          </div>
+          <div className="dataset_log_buttons_td" colSpan={3} style={{ backgroundColor: color }}>
+            Completion id: {data.time_id}<br />
+            {save_button}
+            <LogButton key={'archive' + data.time_id} fun={() => app_state.handle_archive(data)} label="archive" />
+            <LogButton key={'hide' + data.time_id} fun={() => app_state.handle_hide(data)} label="hide" />
+          </div>
+        </td>
+      </tr>
+    );
+  }
+  );
+  return (jsx);
+}
+const OptionsLog = ({ app_state, data, pos_index, state }) => {
+  //for the first example, if we've already submitted the prompt and got answers, the correct options should track
+  // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
+  //   data.correct_options = current_correct_options
+  // }
+  var engine_name = 'davinci-text-002'
+  if (data.engine) {
+    engine_name = data.engine
+    engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
+  }
+  var save_button = <LogButton id='star' fun={() => app_state.handle_save(data)} label="star" />
+  var color = 'white'
+  if (data.star) {
+    save_button = <button id='star' color="yellow" onClick={() => app_state.handle_unsave(data)} name="unstar" >unstar </button>
+    color = '#ffd60059'
+  }
+
+  var example = ""
+  var notes = ""
+  if (data.notes) {
+    notes = data.notes
+  }
+  var author = ""
+  if (data.author) {
+    author = data.author
+  }
+  if (data['show'] === true) {
+    example =
+      <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
+        <td className="dataset_log_options_td">
+          <div>
+            {data.interaction}
+            <button value={data.interaction} onClick={(e) => app_state.setText(e.target.value)}>use as prompt</button>
+          </div>
+        </td>
+        <td className="dataset_log_options_td" >
+          <table key={data.time_id + " options_log"} className="options_log">
+            <tbody >
+              <OptionsAnswersList key={data.time_id + ' oal'} prompt_area={false} data={data} state={state} pos_index={pos_index} />
               <tr>
 
-                <td className="dataset_log_options_td" colSpan={3}>
-                  Model: {engine_name}
+                <td className="dataset_log_buttons_td" colSpan={4}>
+                  <div className='engine_label'>
+                    M: {engine_name}
+                  </div>
+                  <div className='engine_label'>
+                    Id: {data.time_id}
+                  </div>
+
+
 
                 </td>
               </tr>
               <tr>
-                <td className="dataset_log_buttons_td" colSpan={3}>
-                  <span> Completion id: {data.time_id} </span>
-                  <LogButton key={'save' + data.time_id} fun={handle_save(data.time_id)} label="save" />
-                  <LogButton key={'archive' + data.time_id} fun={handle_archive(data.time_id)} label="hide" />
+                <td className="dataset_log_buttons_td" colSpan={4} style={{ backgroundColor: color }}>
+
+                  <div >
+                    <label htmlFor="author_edit">
+                      Author:
+                      <input type='text'
+                        key={data.time_id + '  author edit'}
+                        className="author_edit"
+                        id="author_edit"
+                        value={author}
+                        onChange={(e) => app_state.handle_author_change(e, data, false)}
+                        onBlur={(e) => app_state.handle_author_change(e, data, true)}
+                      />
+                    </label>
+                  </div>
+                  {save_button}
+                  <LogButton key={'archive' + data.time_id} fun={() => app_state.handle_archive(data)} label="archive" />
+                  <LogButton key={'hide' + data.time_id} fun={() => app_state.handle_hide(data)} label="hide" />
+                </td>
+              </tr>
+              <tr >
+                <td className="dataset_log_buttons_td" colSpan={3} >
+                  <Editable
+                    key={data.time_id + ' notes'}
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => app_state.handle_notes_change(e, data, false)}
+                    data={data}
+                    app_state={app_state} />
+
                 </td>
               </tr>
             </tbody>
           </table>
         </td>
-
-
-
       </tr >
-
-    );
+  } else {
+    console.log('data.show: ' + data.show);
   }
+
+  return (
+    example
+  );
+}
+const DatasetLogs = ({ app_state }) => {
+
+  // console.log(JSON.parse(logs[0]));
+  // console.log(logs[0]["prompt"]);
+
+  const state = {
+    'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
+    'update_dataset_options': app_state.update_dataset_options,
+    'get_first_time_id': app_state.get_first_time_id,
+    'handle_option_author_change': app_state.handle_option_author_change,
+
+  }
+
   var logs_to_display = app_state.dataset_logs.map((log) => {
     return log
   });
@@ -262,7 +278,7 @@ const DatasetLogs = ({ app_state }) => {
   })
   const jsx = logs_to_display.map((log, index) => {
     return (
-      <OptionsLog key={Math.random()} data={log} pos_index={index} />
+      <OptionsLog key={log.time_id + ' optionslog'} app_state={app_state} data={log} pos_index={index} state={state} />
     );
 
   });
@@ -271,9 +287,17 @@ const DatasetLogs = ({ app_state }) => {
 
 }
 
+
 const LogButton = (args) => {
   return (
-    <button onClick={args.fun}>{args.label}</button>
+    <button onClick={args.fun} color={args.color}>{args.label}</button>
+  )
+}
+
+const Editable = (args) => {
+  return (
+    <textarea id={args.id} value={args.value} onChange={args.onChange} onKeyDown={args.onKeyDown}
+      onBlur={() => server_update(args.data)} />
   )
 }
 function parse_options(text) {
@@ -290,9 +314,17 @@ function parse_options(text) {
     return [];
   }
 }
-const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index }) => {
+const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index, prompt_area_options_dict }) => {
   // const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
-  var thisOptionCorrect = data.options_dict[option]['correct']
+  var options_dict = {}
+  if (prompt_area) {
+    options_dict = prompt_area_options_dict
+
+  } else {
+    options_dict = data.options_dict
+  }
+
+  var thisOptionCorrect = options_dict[option]['correct']
   const color_logprobs = (logprob) => {
     if (logprob == 'None') {
       return 'white';
@@ -311,12 +343,18 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
       return 'lightpink'
     }
   }
-  var logprob = data.options_dict[option]['logprob']
-
+  var logprob = options_dict[option]['logprob']
+  const author = options_dict[option]['author']
+  var author_name = author
+  //try looking up in engine_dict
+  if (Object.keys(engines).includes(author)) {
+    author_name = engines[author].vshortname
+  }
 
   const handle_click = () => {
-    console.log('thisOptionCorrect', thisOptionCorrect)
-    const option_correct_at_start = thisOptionCorrect
+    console.log('thisOptionCorrect', thisOptionCorrect);
+    const option_correct_at_start = thisOptionCorrect;
+
 
     if (prompt_area) {
       //if we're in the prompt area, we want to try updating both the prompt area and the first dataset entry
@@ -324,12 +362,11 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
 
       state.update_prompt_area_options_dict(option, !option_correct_at_start)
       const first_time_id = state.get_first_time_id()
-      server_update_option_correct(option, !option_correct_at_start, first_time_id)
+      console.log('updating first dataset entry', first_time_id, 'to ', !option_correct_at_start)
       state.update_dataset_options(option, !option_correct_at_start, first_time_id)
     } else { //in dataset log
       console.log('sending to server with time_id ', data.time_id)
       console.log('sending to server with new_correct_options ', !option_correct_at_start)
-      server_update_option_correct(option, !option_correct_at_start, data.time_id)
 
       console.log('updating dataset options', option, !option_correct_at_start)
       state.update_dataset_options(option, !option_correct_at_start, data.time_id)
@@ -338,43 +375,55 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
     // console.log('correct options after update', correct_options)
     // setThisOptionCorrect(!option_correct_at_start)
     thisOptionCorrect = !option_correct_at_start
+    console.log('thisOptionCorrect', thisOptionCorrect)
+
+  }
+  const handle_author_toggle = (data) => {
+    var new_author = ""
+    if (Object.keys(engines).includes(author)) {
+      //set author to the human author
+      new_author = data['author']
+
+
+    } else {
+      //set author to the engine 
+      new_author = data["engine"]
+      author_name = engines[new_author].vshortname
+    }
+
+    state.handle_option_author_change(option, data, new_author)
   }
 
+
   return (
-    <tr key={Math.random()} className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }} >
-      <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }} onClick={() => handle_click()}>{local_index + 1}</td>
+    <tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }} >
+      <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
+        onClick={(e) => handle_click()}>{local_index + 1}</td>
       <td className="option_text_td">{option} </td>
+      <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
       <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
     </tr >);
 
 }
-const OptionsAnswersList = ({ data, pos_index, state, prompt_area }) => {
-  // console.log('OAL2, answers: ', answers);
-  // console.log(answers[1])
+const OptionsAnswersList = ({ data, pos_index, state, prompt_area, prompt_area_options_dict }) => {
 
-  // var display_answers = [];
-  // if (answers !== undefined) {
-  //   display_answers = answers
-  // }
-  // const logprobs = option_list.map((_, i) => {
-  //   const tok = ' ' + String(i + 1);
-  //   if (display_answers[tok] !== undefined) {
-  //     return display_answers[tok];
-  //   } else {
-  //     return 'None';
-  //   }
-  // }
-  // )
   var jsx = '';
-  //function to map logprobs to colors
 
-  const option_list = Object.keys(data.options_dict);
-  // console.log('option_list', option_list);
+  var options_dict = {}
+  if (prompt_area) {
+    options_dict = prompt_area_options_dict
+
+  } else {
+    options_dict = data.options_dict
+  }
+  const option_list = Object.keys(options_dict)
+  console.log('option_list', option_list);
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, local_index) =>
-      <SingleOption key={Math.random()} option={option} data={data} state={state}
-        pos_index={pos_index} prompt_area={prompt_area} local_index={local_index} />
+      <SingleOption key={local_index + ' ' + pos_index + ' ' + prompt_area + ' ' + option} option={option} data={data} state={state}
+        pos_index={pos_index} prompt_area={prompt_area} local_index={local_index}
+        prompt_area_options_dict={prompt_area_options_dict} />
 
 
     );
@@ -393,23 +442,17 @@ You have a smart AI assistant, which is another program running on the same comp
 `
   const option_start_text = "\nOptions:\n1) "
 
-  const [text, setText] = useState('');
+
   const [temp, setTemp] = useState(0);
   const [n_tokens, setNTokens] = useState(50);
   const [option_text, setOptionText] = useState('');
   const [setting, setSetting] = useState(setting_initial);
   const [show_setting, setShowSetting] = useState(false);
   const [engine, setEngine] = useState('text-davinci-002');
+  const [author, setAuthor] = useState('anon');
 
 
-  //short name:long name
-  const engines = [
-    { 'shortname': 'davinci', 'name': 'davinci', 'default': false },
-    { 'shortname': 'text-davinci-002', 'name': 'text-davinci-002', 'default': true },
-    { 'shortname': 'single_yesno_ft', 'name': 'davinci:ft-personal:single-option-discrimination-1-2022-06-16-01-53-08', 'default': false },
-    { 'shortname': 'davinci-ft-small-1', 'name': "davinci:ft-personal-2022-06-15-00-09-30", 'default': false },
-  ]
-
+  var text = app_state.text
 
 
   // console.log('promptare options1: ' + options);
@@ -420,11 +463,16 @@ You have a smart AI assistant, which is another program running on the same comp
     // send text to OpenAI API
 
     api_call(setting + text, temp, n_tokens, engine).then(data => {
-      setText(text + data.completion);
+      console.log(data.completion)
+      console.log(typeof data.completion)
+      app_state.setText(text + data.completion)
+      handle_text_change(textbox, true, text + data.completion);
+
       textbox.style.backgroundColor = "white";
       // update logs
       app_state.add_log(data);
     });
+
 
 
     return
@@ -433,9 +481,9 @@ You have a smart AI assistant, which is another program running on the same comp
     return text.split(option_start_text).slice(0, -1).join(option_start_text);
 
   }
-  function add_new_option(option_text) {
+  function add_new_option(option_text, author = 'None') {
     var new_options_dict = app_state.prompt_area_options_dict;
-    new_options_dict[option_text] = { correct: false, logprob: 'None' };
+    new_options_dict[option_text] = { correct: false, logprob: 'None', author: author };
     app_state.setPromptAreaOptionsDict(new_options_dict);
   }
   function submit_option() {
@@ -454,13 +502,13 @@ You have a smart AI assistant, which is another program running on the same comp
         start = '\n' + String(current_num + 1) + ") ";
       }
     }
-    setText(new_text + start + option_text);
+    app_state.setText(new_text + start + option_text);
     if (option_text.slice(-1) === '\n') {
       option_text = option_text.slice(0, -1);
     }
     // console.log(': ' + option_text);
     // console.log('old options: ' + options);
-    add_new_option(option_text);
+    add_new_option(option_text, author);
     // console.log('set_options: ' + options);
     setOptionText('');
   }
@@ -471,12 +519,15 @@ You have a smart AI assistant, which is another program running on the same comp
     const prompt = setting + text + '\n> The best action is option';
     //interaction is everything up to last 'option'
     const interaction = get_interaction()
+    console.log(app_state.prompt_area_options_dict)
     const data = {
       "prompt": prompt, 'setting': setting, 'interaction': interaction,
-      'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict), 'engine': engine
+      'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict), 'engine': engine,
+      "author": author
     }
     //get list of logprobs
     const new_data = await get_dataset_example(data);
+
     // const logprobs = new_data["answer_logprobs"];
     // console.log('get_answers returning logprobs: ' + logprobs);
     // console.log(logprobs);
@@ -490,7 +541,7 @@ You have a smart AI assistant, which is another program running on the same comp
     const correct_option = Object.keys(app_state.prompt_area_options_dict).filter(option => app_state.prompt_area_options_dict[option].correct === true)[0];
     const interaction = get_interaction()
     const continue_text = '\n> Action:' + correct_option;
-    setText(interaction + continue_text);
+    app_state.setText(interaction + continue_text);
 
   }
   function action_to_option() {
@@ -500,21 +551,34 @@ You have a smart AI assistant, which is another program running on the same comp
 
     const new_options_text = option_start_text + last_action_line;
     const new_text = text.split('> Action:').slice(0, -1).join('> Action:');
-    setText(new_text + new_options_text);
+    app_state.setText(new_text + new_options_text);
 
   }
-  function handle_text_change(textarea) {
-    const new_text = textarea.value;
+  function handle_text_change(textarea, completion = false, new_val = '') {
+    console.log('handle_text_change: ' + textarea.value);
+    var new_text = textarea.value;
+    if (completion) {
+      new_text = new_val
+    }
     // console.log('handle_text_change, new_text ' + new_text);
-    setText(new_text);
-    if (new_text !== '') {
+    app_state.setText(new_text);
+    if ((new_text !== '') && (new_text !== " ")) {
       const new_options = parse_options(new_text);
       console.log('handle text new_options: ' + new_options);
-      if (new_options !== Object.keys(app_state.prompt_area_options_dict)) {
-        var new_options_dict = {}
-      };
+      var new_options_dict = {}
+      var option_author = author
+      if (completion) {
+        option_author = engine
+      }
       new_options.forEach(option => {
-        new_options_dict[option] = { correct: false, logprob: NaN };
+        // check if already exists
+        if (!(Object.keys(app_state.prompt_area_options_dict).includes(option))) {
+          new_options_dict[option] = { correct: false, logprob: NaN, author: option_author };
+          console.log('new option: ' + option + 'with author: ' + option_author);
+        } else {
+          console.log('option already exists: ' + option);
+          new_options_dict[option] = app_state.prompt_area_options_dict[option];
+        }
       }
       );
       app_state.setPromptAreaOptionsDict(new_options_dict);
@@ -544,7 +608,11 @@ You have a smart AI assistant, which is another program running on the same comp
   function view_dataset() {
     window.location.href = '/dataset';
   }
-
+  var author_color = "white";
+  if (author === "anon") {
+    author_color = "#ff5b00b0";
+  }
+  console.log(author_color)
   // console.log('promptare options: ' + options);
   return (
     <div key='prompt_area' className='prompt_area'>
@@ -555,23 +623,30 @@ You have a smart AI assistant, which is another program running on the same comp
           <label htmlFor="temp">Temp</label>
         </div>
         <div className='setting'>
-          <input key="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(e.target.value)} />
+          <input id="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(e.target.value)} />
           <label htmlFor="n_tokens">NTokens</label>
         </div>
         <div className='setting'>
-          <input key="change_newlines" type="checkbox" value={app_state.newlines} onChange={(e) => app_state.set_newlines(!app_state.newlines)} />
-          <label htmlFor="newlines">Show Newlines</label>
+          <input id="change_newlines" type="checkbox" value={app_state.newlines} onChange={(e) => app_state.set_newlines(!app_state.newlines)} />
+          <label htmlFor="change_newlines">Show Newlines</label>
         </div>
         <div className='setting'>
-          <input key="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
-          <label htmlFor="newlines">Show Setting</label>
+          <input id="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
+          <label htmlFor="change_show_setting">Show Setting</label>
         </div>
+        <div className='setting' style={{ backgroundColor: author_color }} >
+          <input id="change_author" type="text" value={author} onChange={(e) => setAuthor(e.target.value)} style={{ backgroundColor: author_color }} />
+          <label htmlFor="change_author" >Author</label>
+        </div>
+      </div>
+      <div className="settings_bar">
         <div className='engine' onChange={(e) => setEngine(e.target.value)}>
 
-          {engines.map((eng) => {
+          {(Object.keys(engines)).map((eng) => {
             return (
-              <label key={Math.random()} htmlFor={eng.name} >{eng.shortname}
-                <input type="radio" value={eng.name} name="engine" checked={engine === eng.name} />
+              <label key={Math.random()} htmlFor={eng} >{engines[eng]['shortname']}
+                <input type="radio" value={eng} name="engine"
+                  checked={engine === eng} onChange={(e) => setEngine(e.target.value)} />
 
               </label>
             )
@@ -583,7 +658,7 @@ You have a smart AI assistant, which is another program running on the same comp
       </div>
       {SettingBox()}
       <div onKeyDown={handle_prompt_keypress}>
-        <textarea key="prompt_textarea" className='prompt_textarea' id="prompt_textarea"
+        <textarea key="prompt_textarea" className='prompt_textarea' id="prompt_textarea" style={{ whiteSpace: "pre-wrap" }}
           value={text} onChange={(e) => handle_text_change(e.target)} />
         <br></br>
         <button id="submit_prompt" onClick={() => get_completion()}>get completion</button>
@@ -603,7 +678,7 @@ You have a smart AI assistant, which is another program running on the same comp
           <tbody>
             <OptionsAnswersList
               prompt_area={true}
-              data={{ 'options_dict': app_state.prompt_area_options_dict }} state={app_state} />
+              prompt_area_options_dict={app_state.prompt_area_options_dict} state={app_state} />
           </tbody>
         </table>
       </div>
@@ -621,7 +696,8 @@ function App() {
   const [dataset_logs, setDatasetLogs] = useState([]);
   const [newlines, setNewlines] = useState(false);
   const [prompt_area_options_dict, setPromptAreaOptionsDict] = useState({});
-
+  const [text, setText] = useState('');
+  const [first_id, setFirstId] = useState('');
 
 
 
@@ -631,6 +707,8 @@ function App() {
     })
     get_dataset_logs_from_server().then(loaded_logs => {
       setDatasetLogs(loaded_logs)
+      console.log('loadedlogs[0].show:', loaded_logs[0].show);
+      setFirstId(loaded_logs[0].time_id);
     })
 
   }, []);
@@ -643,25 +721,32 @@ function App() {
   const add_dataset_log = (data) => {
     console.log('add_dataset_log, data: ' + data);
     setDatasetLogs([...dataset_logs, data])
+    setFirstId(data.time_id);
 
   }
   const update_dataset_options = (option, new_val, time_id) => {
+    var newdata = dataset_logs.filter(log => log.time_id === time_id)[0];
+    console.log('update_dataset_options, newdata before: ', newdata);
+    console.log('keys: ', Object.keys(newdata.options_dict));
+    console.log('option', option);
+    if (Object.keys(newdata.options_dict).includes(option)) {
+      newdata.options_dict[option]['correct'] = new_val;
+      console.log('update_dataset_options, newdata after: ', newdata);
+      update_dataset_example(newdata)
+      server_update(newdata)
+    }
+  }
+  const update_dataset_example = (data) => {
     const new_dataset_logs = dataset_logs.map(log => {
-      if (log.time_id === time_id) {
-        if (Object.keys(log.options_dict).includes(option)) {
-          log.options_dict[option]['correct'] = new_val;
-        }
+      if (log.time_id === data.time_id) {
+        log = data;
       }
       return log;
     })
     setDatasetLogs(new_dataset_logs)
   }
   const get_first_time_id = () => {
-    if (dataset_logs.length > 0) {
-      return dataset_logs[0].time_id;
-    } else {
-      return 0;
-    }
+    return first_id;
   }
   const update_first_dataset_options = (option, new_val) => {
     const new_dataset_logs = dataset_logs.map((log, index) => {
@@ -674,19 +759,80 @@ function App() {
     })
     setDatasetLogs(new_dataset_logs)
   }
-  // const update_first_dataset_option = (option, new_val) => {
-  //   const first_time_id = dataset_logs[0].time_id;
-  //   update_dataset_options(option, new_val, first_time_id);
-  // }
+  const handle_notes_change = (e, data, push) => {
+    data.notes = e.target.value;
+    update_dataset_example(data);
+    if (push) {
+      server_update(data)
+    }
+  }
+  const handle_author_change = (e, data, push) => {
+    data.author = e.target.value;
+    console.log(e.target.value)
+    console.log(data)
+    update_dataset_example(data);
+    if (push) {
+      server_update(data)
+    }
+  }
+
+  const handle_option_author_change = (option, data, author) => {
+    data['options_dict'][option]['author'] = author;
+    console.log(data)
+    update_dataset_example(data);
+    server_update(data)
+  }
+
+
   const update_prompt_area_options_dict = (option, new_val) => {
-    console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
+    // console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
     if (Object.keys(prompt_area_options_dict).includes(option)) {
-      console.log('found option');
-      var new_dict = prompt_area_options_dict;
+      // console.log('found option');
+      var new_dict = Object.assign({}, prompt_area_options_dict);
+      // console.log('new_dict,before: ', new_dict[option]);
       new_dict[option]['correct'] = new_val;
+      // console.log('new_dict,after: ', new_dict[option]);
+
       setPromptAreaOptionsDict(new_dict);
+
+      // console.log('just set prompt_area_options_dict: ', prompt_area_options_dict);
     }
 
+  }
+  var handle_save = (data) => {
+    var newdata = data
+    newdata['star'] = true;
+    console.log('saving ID ' + newdata.time_id);
+    server_update(newdata);
+    update_dataset_example(newdata);
+
+  }
+
+  var handle_unsave = (data) => {
+    var newdata = data
+    newdata['star'] = false;
+    console.log('unsaving ID ' + newdata.time_id);
+    server_update(newdata);
+    update_dataset_example(newdata);
+
+  }
+  var handle_hide = (data) => {
+    console.log('hiding ID ' + data.time_id);
+    var newdata = data
+    newdata['show'] = false;
+    server_update(newdata);
+    // update logs
+    update_dataset_example(newdata);
+
+  }
+  var handle_archive = (data) => {
+    console.log('archiving ID ' + data.time_id);
+    var newdata = data
+    newdata['main'] = false;
+    newdata['show'] = false;
+    server_update(newdata);
+    // update logs
+    update_dataset_example(newdata);
   }
 
   const remove_log = (id, dataset = 'log') => {
@@ -719,7 +865,18 @@ function App() {
     update_prompt_area_options_dict: update_prompt_area_options_dict,
     // update_first_dataset_option: update_first_dataset_option,
     setPromptAreaOptionsDict: setPromptAreaOptionsDict,
-    get_first_time_id: get_first_time_id
+    get_first_time_id: get_first_time_id,
+    update_dataset_example: update_dataset_example,
+    handle_save: handle_save,
+    handle_unsave: handle_unsave,
+    handle_hide: handle_hide,
+    handle_archive: handle_archive,
+    text: text,
+    setText: setText,
+    handle_notes_change: handle_notes_change,
+    handle_option_author_change: handle_option_author_change,
+    handle_author_change: handle_author_change,
+
   }
 
 
@@ -756,14 +913,11 @@ function App() {
               <td>
                 Completion
               </td>
-              <td>
-                _
-              </td>
             </tr>
           </thead>
           <tbody >
             <Logs key='logs' logs={logs} remove_log_by_id={remove_log}
-              white_space_style={white_space_style} />
+              white_space_style={white_space_style} app_state={app_state} />
           </tbody>
         </table>
       </div>
