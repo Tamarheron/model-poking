@@ -92,23 +92,25 @@ table {
 .setting {
   width: 30%;
   margin-bottom: 10px;
-  margin-left: 5px;
-  margin-right: 10px;
+  margin-left: 10px;
+  margin-right: 10x;
   display: flex;
+  padding: 10px
 }
 
-input.radio {
+input[type="radio"] {
 
   width: auto;
 }
 
-input.checkbox {
+input[type="checkbox"] {
   width: 10%;
 }
 
 label {
   float: left;
   margin-left: 2px;
+  margin-right: 40px;
 }
 
 
@@ -117,12 +119,14 @@ label {
   display: flex;
   margin-bottom: 10px;
   vertical-align: middle;
+  border-bottom: #ccc 1px solid;
+  align-items: center;
 }
 
 input[type="number"] {
-  width: 40px;
+  width: 20%;
   text-align: center;
-  margin-right: 10px;
+
 }
 
 .options_log {
@@ -139,10 +143,22 @@ input[type="number"] {
 
 
 .logprob_td,
+.author_td,
 .index_td {
   text-align: center;
   padding: 3px;
   border: 0px;
+}
+
+.engine_label {
+  margin-right: 10px;
+  display: inline;
+}
+
+.author_edit {
+  width: 50%;
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
 .index_td {
