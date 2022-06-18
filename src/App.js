@@ -400,7 +400,7 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
         onClick={(e) => handle_click()}>{local_index + 1}</td>
       <td className="option_text_td">{option} </td>
-      <td className="author_td" onClick={() => handle_author_toggle(data)}>{author}</td>
+      <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
       <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
     </tr >);
 
