@@ -26,6 +26,7 @@ database_url = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
     "postgres://", "postgresql://"
 )
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
@@ -295,9 +296,7 @@ def update_dataset_log():
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
     print("get_dataset_logs")
-    stmt = (
-        db.session.query(DatasetExample).filter(DatasetExample.show == True).all()[-30:]
-    )
+    stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
     print(stmt[0].options_dict)
     dict_list = [to_dict(x) for x in stmt]
     # print(dict_list[1])
