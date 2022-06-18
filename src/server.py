@@ -276,6 +276,7 @@ def update_dataset_log():
     stmt.notes = data.get("notes")
     stmt.show = data["show"]
     stmt.star = data["star"]
+    stmt.main = data["main"]
     db.session.commit()
     return "saved"
 
@@ -292,18 +293,20 @@ def update_correct_options():
     example = (
         db.session.query(DatasetExample).filter(DatasetExample.time_id == id).first()
     )
-    options_dict = example.options_dict
-    for i, option in enumerate(options_dict):
-        if option.text == option:
-            option[i]["correct"] = new_val
+    for o in example.options_dict:
+        if o.text == option:
+            o.correct = new_val
+    # update database
     db.session.commit()
+    print(example.options_dict)
+
     return "updated"
 
 
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
     print("get_dataset_logs")
-    stmt = db.session.query(DatasetExample).all()
+    stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
     print(stmt[0].options_dict)
     dict_list = [to_dict(x) for x in stmt]
     # print(dict_list[1])

@@ -98,12 +98,12 @@ table {
   padding: 10px
 }
 
-input.radio {
+input[type="radio"] {
 
   width: auto;
 }
 
-input.checkbox {
+input[type="checkbox"] {
   width: 10%;
 }
 
@@ -124,7 +124,7 @@ label {
 }
 
 input[type="number"] {
-  width: 40px;
+  width: 20%;
   text-align: center;
 
 }
@@ -143,10 +143,22 @@ input[type="number"] {
 
 
 .logprob_td,
+.author_td,
 .index_td {
   text-align: center;
   padding: 3px;
   border: 0px;
+}
+
+.engine_label {
+  margin-right: 10px;
+  display: inline;
+}
+
+.author_edit {
+  width: 50%;
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
 .index_td {

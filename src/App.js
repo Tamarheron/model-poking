@@ -172,6 +172,103 @@ const Logs = ({ logs, remove_log_by_id, white_space_style, app_state }) => {
   );
   return (jsx);
 }
+const OptionsLog = ({ app_state, data, pos_index, state }) => {
+  //for the first example, if we've already submitted the prompt and got answers, the correct options should track
+  // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
+  //   data.correct_options = current_correct_options
+  // }
+  var engine_name = 'davinci-text-002'
+  if (data.engine) {
+    engine_name = data.engine
+    engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
+  }
+  var save_button = <LogButton id='star' fun={() => app_state.handle_save(data)} label="star" />
+  var color = 'white'
+  if (data.star) {
+    save_button = <button id='star' color="yellow" onClick={() => app_state.handle_unsave(data)} name="unstar" >unstar </button>
+    color = '#ffd60059'
+  }
+
+  var example = ""
+  var notes = ""
+  if (data.notes) {
+    notes = data.notes
+  }
+  var author = ""
+  if (data.author) {
+    author = data.author
+  }
+  if (data['show'] === true) {
+    example =
+      <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
+        <td className="dataset_log_options_td">
+          <div>
+            {data.interaction}
+            <button value={data.interaction} onClick={(e) => app_state.setText(e.target.value)}>use as prompt</button>
+          </div>
+        </td>
+        <td className="dataset_log_options_td" >
+          <table key={data.time_id + " options_log"} className="options_log">
+            <tbody >
+              <OptionsAnswersList key={data.time_id + ' oal'} data={data} state={state} pos_index={pos_index} />
+              <tr>
+
+                <td className="dataset_log_buttons_td" colSpan={4}>
+                  <div className='engine_label'>
+                    M: {engine_name}
+                  </div>
+                  <div className='engine_label'>
+                    Id: {data.time_id}
+                  </div>
+
+
+
+                </td>
+              </tr>
+              <tr>
+                <td className="dataset_log_buttons_td" colSpan={4} style={{ backgroundColor: color }}>
+
+                  <div >
+                    <label htmlFor="author_edit">
+                      Author:
+                      <input type='text'
+                        key={data.time_id + '  author edit'}
+                        className="author_edit"
+                        id="author_edit"
+                        value={author}
+                        onChange={(e) => app_state.handle_author_change(e, data)}
+                        onFocusOut={() => app_state.server_update(data)} />
+                    </label>
+                  </div>
+                  {save_button}
+                  <LogButton key={'archive' + data.time_id} fun={() => app_state.handle_archive(data)} label="archive" />
+                  <LogButton key={'hide' + data.time_id} fun={() => app_state.handle_hide(data)} label="hide" />
+                </td>
+              </tr>
+              <tr >
+                <td className="dataset_log_buttons_td" colSpan={3} >
+                  <Editable
+                    key={data.time_id + ' notes'}
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => app_state.handle_notes_change(e, data)}
+                    data={data}
+                    app_state={app_state} />
+
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr >
+  } else {
+    console.log('data.show: ' + data.show);
+  }
+
+  return (
+    example
+  );
+}
 const DatasetLogs = ({ app_state }) => {
 
   // console.log(JSON.parse(logs[0]));
@@ -184,66 +281,6 @@ const DatasetLogs = ({ app_state }) => {
 
   }
 
-  // console.log('dataset_data ', data.map(d => d['correct_options']));
-  const OptionsLog = ({ data, pos_index }) => {
-    //for the first example, if we've already submitted the prompt and got answers, the correct options should track
-    // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
-    //   data.correct_options = current_correct_options
-    // }
-    var engine_name = 'davinci-text-002'
-    if (data.engine) {
-      engine_name = data.engine
-      engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
-    }
-    var save_button = <LogButton id='star' fun={() => app_state.handle_save(data)} label="star" />
-    var color = 'white'
-    if (data.star) {
-      save_button = <button id='star' color="yellow" onClick={() => app_state.handle_unsave(data)} name="unstar" >unstar </button>
-      color = '#ffd60059'
-    }
-
-    var example = ""
-
-    if (data['show'] === true) {
-      example =
-        <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
-          <td className="dataset_log_options_td">
-            <div>
-              {data.interaction}
-              <button value={data.interaction} onClick={(e) => app_state.setText(e.target.value)}>use as prompt</button>
-            </div>
-          </td>
-          <td className="dataset_log_options_td" >
-            <table key="options_log" className="options_log">
-              <tbody>
-                <OptionsAnswersList key={Math.random()} data={data} state={state} pos_index={pos_index} />
-                <tr>
-
-                  <td className="dataset_log_options_td" colSpan={3}>
-                    M: {engine_name} A:{data.author}
-
-                  </td>
-                </tr>
-                <tr>
-                  <td className="dataset_log_buttons_td" colSpan={3} style={{ backgroundColor: color }}>
-                    <span> Completion id: {data.time_id} </span>
-                    {save_button}
-                    <LogButton key={'archive' + data.time_id} fun={() => app_state.handle_archive(data)} label="archive" />
-                    <LogButton key={'hide' + data.time_id} fun={() => app_state.handle_hide(data)} label="hide" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </td>
-        </tr >
-    } else {
-      console.log('data.show: ' + data.show);
-    }
-
-    return (
-      example
-    );
-  }
   var logs_to_display = app_state.dataset_logs.map((log) => {
     return log
   });
@@ -252,7 +289,7 @@ const DatasetLogs = ({ app_state }) => {
   })
   const jsx = logs_to_display.map((log, index) => {
     return (
-      <OptionsLog key={Math.random()} data={log} pos_index={index} />
+      <OptionsLog key={log.time_id + ' optionslog'} app_state={app_state} data={log} pos_index={index} state={state} />
     );
 
   });
@@ -261,9 +298,17 @@ const DatasetLogs = ({ app_state }) => {
 
 }
 
+
 const LogButton = (args) => {
   return (
     <button onClick={args.fun} color={args.color}>{args.label}</button>
+  )
+}
+
+const Editable = (args) => {
+  return (
+    <textarea id={args.id} value={args.value} onChange={args.onChange} onKeyDown={args.onKeyDown}
+      onFocusOut={() => args.app_state.server_update(args.data)} />
   )
 }
 function parse_options(text) {
@@ -336,40 +381,24 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
   }
 
   return (
-    <tr key={Math.random()} className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }} >
+    <tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }} >
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }} onClick={() => handle_click()}>{local_index + 1}</td>
       <td className="option_text_td">{option} </td>
-      <td className="logprob_td">{author}</td>
+      <td className="author_td">{author}</td>
       <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
     </tr >);
 
 }
 const OptionsAnswersList = ({ data, pos_index, state, prompt_area }) => {
-  // console.log('OAL2, answers: ', answers);
-  // console.log(answers[1])
 
-  // var display_answers = [];
-  // if (answers !== undefined) {
-  //   display_answers = answers
-  // }
-  // const logprobs = option_list.map((_, i) => {
-  //   const tok = ' ' + String(i + 1);
-  //   if (display_answers[tok] !== undefined) {
-  //     return display_answers[tok];
-  //   } else {
-  //     return 'None';
-  //   }
-  // }
-  // )
   var jsx = '';
-  //function to map logprobs to colors
 
   const option_list = Object.keys(data.options_dict);
   // console.log('option_list', option_list);
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, local_index) =>
-      <SingleOption key={Math.random()} option={option} data={data} state={state}
+      <SingleOption key={data.time_id + ' ' + option} option={option} data={data} state={state}
         pos_index={pos_index} prompt_area={prompt_area} local_index={local_index} />
 
 
@@ -706,10 +735,17 @@ function App() {
     })
     setDatasetLogs(new_dataset_logs)
   }
-  // const update_first_dataset_option = (option, new_val) => {
-  //   const first_time_id = dataset_logs[0].time_id;
-  //   update_dataset_options(option, new_val, first_time_id);
-  // }
+  const handle_notes_change = (e, data) => {
+    data.notes = e.target.value;
+    update_dataset_example(data);
+  }
+  const handle_author_change = (e, data) => {
+    data.author = e.target.value;
+    update_dataset_example(data);
+  }
+
+
+
   const update_prompt_area_options_dict = (option, new_val) => {
     console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
     if (Object.keys(prompt_area_options_dict).includes(option)) {
@@ -794,6 +830,7 @@ function App() {
     handle_archive: handle_archive,
     text: text,
     setText: setText,
+    handle_notes_change: handle_notes_change,
 
   }
 
