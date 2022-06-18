@@ -277,6 +277,7 @@ def update_dataset_log():
     stmt.show = data["show"]
     stmt.star = data["star"]
     stmt.main = data["main"]
+    stmt.author = data["author"]
     db.session.commit()
     return "saved"
 

@@ -236,8 +236,8 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
                         className="author_edit"
                         id="author_edit"
                         value={author}
-                        onChange={(e) => app_state.handle_author_change(e, data)}
-                        onFocusOut={() => app_state.server_update(data)} />
+                        onChange={(e) => app_state.handle_author_change(e, data, false)} 
+                        />
                     </label>
                   </div>
                   {save_button}
