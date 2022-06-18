@@ -131,14 +131,13 @@ def get_database_connection() -> Connection:
 
 
 def make_options_dict(item):
-    item["options_dict"] = {}
     for i, option in enumerate(item["options"]):
         logprob = item["answer_logprobs"].get(f" {i+1}", "None")
         correct_options = item.get("correct_options", [])
-        item["options_dict"][option] = {
-            "correct": i in correct_options,
-            "logprob": -100.0 if logprob == "None" else float(logprob),
-        }
+        item["options_dict"][option]["correct"] = i in correct_options
+        item["options_dict"][option]["logprob"] = (
+            -100.0 if logprob == "None" else float(logprob)
+        )
 
 
 def update_options_dict(item):
@@ -151,6 +150,8 @@ def update_options_dict(item):
         d["text"] = text
         d["logprob"] = -100.0 if d["logprob"] == "None" else float(d["logprob"])
         d["id"] = text + str(item["time_id"])
+        print(d["author"])
+        # d["author"] = d["author"]
         item["options_dict"].append(Option(**d))
 
 
@@ -203,9 +204,10 @@ def submit_prompt():
     print("getting completion from openai, engine: " + engine)
     completion = response.choices[0].text
     logprobs = response.choices[0].logprobs
+    print("completion: " + completion)
 
     data["prompt"] = prompt
-    data["completion"] = json.dumps(completion)
+    data["completion"] = completion
     data["logprobs"] = json.dumps(logprobs)
     data["time_id"] = int(time.time())
     data.pop("text")
@@ -238,7 +240,9 @@ def get_answer():
     answer_logprobs = logprobs[0]
     data["answer_logprobs"] = answer_logprobs
     data["time_id"] = str(int(time.time()))
-    data["completion"] = response.choices[0].text
+    data["completion"] = str(response.choices[0].text)
+    data["show"] = True
+    data["main"] = True
     make_options_dict(data)
     update_options_dict(data)
     print(data["options_dict"])
@@ -269,7 +273,7 @@ def update_dataset_log():
         .first()
     )
     stmt.options = data["options_dict"]
-    stmt.notes = data["notes"]
+    stmt.notes = data.get("notes")
     stmt.show = data["show"]
     stmt.star = data["star"]
     db.session.commit()
@@ -285,9 +289,15 @@ def update_correct_options():
     id = data["time_id"]
     option = data["option"]
     new_val = data["new_val"]
-    stmt = db.session.query(DatasetExample).filter(DatasetExample.id == id).first()
-    stmt.options[option]["correct"] = new_val
+    example = (
+        db.session.query(DatasetExample).filter(DatasetExample.time_id == id).first()
+    )
+    options_dict = example.options_dict
+    for i, option in enumerate(options_dict):
+        if option.text == option:
+            option[i]["correct"] = new_val
     db.session.commit()
+    return "updated"
 
 
 @app.route("/get_dataset_logs")

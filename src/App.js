@@ -4,6 +4,16 @@ import React, { useEffect, useState } from 'react';
 import { conditionalExpression } from '@babel/types';
 
 
+//short name:long name
+const engines = {
+  'davinci': { 'shortname': 'davinci', 'default': false, 'vshortname': 'dv' },
+  'text-davinci-002': { 'shortname': 'text-davinci-002', 'default': true, 'vshortname': 'dv-2' },
+  'davinci:ft-personal:single-option-discrimination-1-2022-06-16-01-53-08': {
+    'shortname': 'single_yesno_ft',
+    'default': false, 'vshortname': 'dvftdis1'
+  },
+  'davinci:ft-personal-2022-06-15-00-09-30': { 'shortname': "davinci-ft-small-1", 'default': false, 'vshortname': 'dvftgen1' },
+}
 
 function api_call(text, temp = 0, n_tokens = 50, engine) {
 
@@ -198,7 +208,10 @@ const DatasetLogs = ({ app_state }) => {
       example =
         <tr key={data.time_id} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
           <td className="dataset_log_options_td">
-            {data.interaction}
+            <div>
+              {data.interaction}
+              <button value={data.interaction} onClick={(e) => app_state.setText(e.target.value)}>use as prompt</button>
+            </div>
           </td>
           <td className="dataset_log_options_td" >
             <table key="options_log" className="options_log">
@@ -290,6 +303,11 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
   }
   var logprob = data.options_dict[option]['logprob']
 
+  var author = data.options_dict[option]['author']
+  //try looking up in engine_dict
+  if (Object.keys(engines).includes(author)) {
+    author = engines[author].vshortname
+  }
 
   const handle_click = () => {
     console.log('thisOptionCorrect', thisOptionCorrect)
@@ -321,6 +339,7 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
     <tr key={Math.random()} className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }} >
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }} onClick={() => handle_click()}>{local_index + 1}</td>
       <td className="option_text_td">{option} </td>
+      <td className="logprob_td">{author}</td>
       <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
     </tr >);
 
@@ -370,7 +389,7 @@ You have a smart AI assistant, which is another program running on the same comp
 `
   const option_start_text = "\nOptions:\n1) "
 
-  const [text, setText] = useState('');
+
   const [temp, setTemp] = useState(0);
   const [n_tokens, setNTokens] = useState(50);
   const [option_text, setOptionText] = useState('');
@@ -380,14 +399,7 @@ You have a smart AI assistant, which is another program running on the same comp
   const [author, setAuthor] = useState('anon');
 
 
-  //short name:long name
-  const engines = [
-    { 'shortname': 'davinci', 'name': 'davinci', 'default': false },
-    { 'shortname': 'text-davinci-002', 'name': 'text-davinci-002', 'default': true },
-    { 'shortname': 'single_yesno_ft', 'name': 'davinci:ft-personal:single-option-discrimination-1-2022-06-16-01-53-08', 'default': false },
-    { 'shortname': 'davinci-ft-small-1', 'name': "davinci:ft-personal-2022-06-15-00-09-30", 'default': false },
-  ]
-
+  var text = app_state.text
 
 
   // console.log('promptare options1: ' + options);
@@ -398,11 +410,16 @@ You have a smart AI assistant, which is another program running on the same comp
     // send text to OpenAI API
 
     api_call(setting + text, temp, n_tokens, engine).then(data => {
-      setText(text + data.completion);
+      console.log(data.completion)
+      console.log(typeof data.completion)
+      app_state.setText(text + data.completion)
+      handle_text_change(textbox, true, text + data.completion);
+
       textbox.style.backgroundColor = "white";
       // update logs
       app_state.add_log(data);
     });
+
 
 
     return
@@ -432,13 +449,13 @@ You have a smart AI assistant, which is another program running on the same comp
         start = '\n' + String(current_num + 1) + ") ";
       }
     }
-    setText(new_text + start + option_text);
+    app_state.setText(new_text + start + option_text);
     if (option_text.slice(-1) === '\n') {
       option_text = option_text.slice(0, -1);
     }
     // console.log(': ' + option_text);
     // console.log('old options: ' + options);
-    add_new_option(option_text, 'human');
+    add_new_option(option_text, author);
     // console.log('set_options: ' + options);
     setOptionText('');
   }
@@ -449,6 +466,7 @@ You have a smart AI assistant, which is another program running on the same comp
     const prompt = setting + text + '\n> The best action is option';
     //interaction is everything up to last 'option'
     const interaction = get_interaction()
+    console.log(app_state.prompt_area_options_dict)
     const data = {
       "prompt": prompt, 'setting': setting, 'interaction': interaction,
       'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict), 'engine': engine,
@@ -456,6 +474,7 @@ You have a smart AI assistant, which is another program running on the same comp
     }
     //get list of logprobs
     const new_data = await get_dataset_example(data);
+
     // const logprobs = new_data["answer_logprobs"];
     // console.log('get_answers returning logprobs: ' + logprobs);
     // console.log(logprobs);
@@ -469,7 +488,7 @@ You have a smart AI assistant, which is another program running on the same comp
     const correct_option = Object.keys(app_state.prompt_area_options_dict).filter(option => app_state.prompt_area_options_dict[option].correct === true)[0];
     const interaction = get_interaction()
     const continue_text = '\n> Action:' + correct_option;
-    setText(interaction + continue_text);
+    app_state.setText(interaction + continue_text);
 
   }
   function action_to_option() {
@@ -479,25 +498,33 @@ You have a smart AI assistant, which is another program running on the same comp
 
     const new_options_text = option_start_text + last_action_line;
     const new_text = text.split('> Action:').slice(0, -1).join('> Action:');
-    setText(new_text + new_options_text);
+    app_state.setText(new_text + new_options_text);
 
   }
-  function handle_text_change(textarea, completion = false) {
-    const new_text = textarea.value;
+  function handle_text_change(textarea, completion = false, new_val = '') {
+    console.log('handle_text_change: ' + textarea.value);
+    var new_text = textarea.value;
+    if (completion) {
+      new_text = new_val
+    }
     // console.log('handle_text_change, new_text ' + new_text);
-    setText(new_text);
-    if (new_text !== '') {
+    app_state.setText(new_text);
+    if ((new_text !== '') && (new_text !== " ")) {
       const new_options = parse_options(new_text);
       console.log('handle text new_options: ' + new_options);
-      var new_options_dict = app_state.prompt_area_options_dict
+      var new_options_dict = {}
       var option_author = author
       if (completion) {
         option_author = engine
       }
       new_options.forEach(option => {
         // check if already exists
-        if (!(option in new_options_dict)) {
+        if (!(Object.keys(app_state.prompt_area_options_dict).includes(option))) {
           new_options_dict[option] = { correct: false, logprob: NaN, author: option_author };
+          console.log('new option: ' + option + 'with author: ' + option_author);
+        } else {
+          console.log('option already exists: ' + option);
+          new_options_dict[option] = app_state.prompt_area_options_dict[option];
         }
       }
       );
@@ -562,10 +589,11 @@ You have a smart AI assistant, which is another program running on the same comp
       <div className="settings_bar">
         <div className='engine' onChange={(e) => setEngine(e.target.value)}>
 
-          {engines.map((eng) => {
+          {(Object.keys(engines)).map((eng) => {
             return (
-              <label key={Math.random()} htmlFor={eng.name} >{eng.shortname}
-                <input type="radio" value={eng.name} name="engine" checked={engine === eng.name} onChange={(e) => setEngine(e.target.value)} />
+              <label key={Math.random()} htmlFor={engines[eng]['name']} >{engines[eng]['shortname']}
+                <input type="radio" value={engines[eng]['name']} name="engine"
+                  checked={engine === engines[eng]['name']} onChange={(e) => setEngine(e.target.value)} />
 
               </label>
             )
@@ -577,7 +605,7 @@ You have a smart AI assistant, which is another program running on the same comp
       </div>
       {SettingBox()}
       <div onKeyDown={handle_prompt_keypress}>
-        <textarea key="prompt_textarea" className='prompt_textarea' id="prompt_textarea"
+        <textarea key="prompt_textarea" className='prompt_textarea' id="prompt_textarea" style={{ whiteSpace: "pre-wrap" }}
           value={text} onChange={(e) => handle_text_change(e.target)} />
         <br></br>
         <button id="submit_prompt" onClick={() => get_completion()}>get completion</button>
@@ -615,7 +643,7 @@ function App() {
   const [dataset_logs, setDatasetLogs] = useState([]);
   const [newlines, setNewlines] = useState(false);
   const [prompt_area_options_dict, setPromptAreaOptionsDict] = useState({});
-
+  const [text, setText] = useState('');
 
 
 
@@ -764,6 +792,8 @@ function App() {
     handle_unsave: handle_unsave,
     handle_hide: handle_hide,
     handle_archive: handle_archive,
+    text: text,
+    setText: setText,
 
   }
 
