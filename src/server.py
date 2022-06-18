@@ -265,7 +265,7 @@ def update_dataset_log():
     print("update_dataset_log")
     # get id from request
     data = flask.request.get_json()
-    # print(data)
+    print(data)
 
     stmt = (
         db.session.query(DatasetExample)
@@ -274,34 +274,22 @@ def update_dataset_log():
     )
     stmt.options = data["options_dict"]
     stmt.notes = data.get("notes")
-    stmt.show = data["show"]
-    stmt.star = data["star"]
-    stmt.main = data["main"]
+    stmt.show = data.get("show", True)
+    stmt.star = data.get("star", False)
+    stmt.main = data.get("main", True)
     stmt.author = data["author"]
     db.session.commit()
+
+    # update options table also
+    for k in data["options_dict"].keys():
+        option = data["options_dict"][k]
+        stmt = db.session.query(Option).filter(Option.id == option["id"]).first()
+        stmt.correct = option["correct"]
+        stmt.logprob = option["logprob"]
+        stmt.author = option["author"]
+        db.session.commit()
+
     return "saved"
-
-
-@app.route("/update_correct_options", methods=["POST"])
-def update_correct_options():
-    print("update_correct_options")
-    # get id from request
-    data = flask.request.get_json()
-    print(data)
-    id = data["time_id"]
-    option = data["option"]
-    new_val = data["new_val"]
-    example = (
-        db.session.query(DatasetExample).filter(DatasetExample.time_id == id).first()
-    )
-    for o in example.options_dict:
-        if o.text == option:
-            o.correct = new_val
-    # update database
-    db.session.commit()
-    print(example.options_dict)
-
-    return "updated"
 
 
 @app.route("/get_dataset_logs")

@@ -1,7 +1,6 @@
 
 import './App.css';
 import React, { useEffect, useState } from 'react';
-import { conditionalExpression } from '@babel/types';
 
 
 //short name:long name
@@ -109,18 +108,6 @@ async function get_dataset_logs_from_server() {
   return logs
 }
 
-async function server_update_option_correct(option, new_val, time_id) {
-  console.log('updating option correct', time_id, option, new_val);
-  const headers = { 'Content-Type': 'application/json' }
-  const args = {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify({ 'time_id': time_id, 'option': option, 'new_val': new_val })
-  }
-
-  fetch('/update_correct_options', args)
-
-}
 
 const Logs = ({ logs, remove_log_by_id, white_space_style, app_state }) => {
   // console.log(JSON.parse(logs[0]));
@@ -210,7 +197,7 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
         <td className="dataset_log_options_td" >
           <table key={data.time_id + " options_log"} className="options_log">
             <tbody >
-              <OptionsAnswersList key={data.time_id + ' oal'} data={data} state={state} pos_index={pos_index} />
+              <OptionsAnswersList key={data.time_id + ' oal'} prompt_area={false} data={data} state={state} pos_index={pos_index} />
               <tr>
 
                 <td className="dataset_log_buttons_td" colSpan={4}>
@@ -236,8 +223,9 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
                         className="author_edit"
                         id="author_edit"
                         value={author}
-                        onChange={(e) => app_state.handle_author_change(e, data, false)} 
-                        />
+                        onChange={(e) => app_state.handle_author_change(e, data, false)}
+                        onBlur={(e) => app_state.handle_author_change(e, data, true)}
+                      />
                     </label>
                   </div>
                   {save_button}
@@ -251,7 +239,7 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
                     key={data.time_id + ' notes'}
                     id="notes"
                     value={notes}
-                    onChange={(e) => app_state.handle_notes_change(e, data)}
+                    onChange={(e) => app_state.handle_notes_change(e, data, false)}
                     data={data}
                     app_state={app_state} />
 
@@ -278,6 +266,7 @@ const DatasetLogs = ({ app_state }) => {
     'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
     'update_dataset_options': app_state.update_dataset_options,
     'get_first_time_id': app_state.get_first_time_id,
+    'handle_option_author_change': app_state.handle_option_author_change,
 
   }
 
@@ -308,7 +297,7 @@ const LogButton = (args) => {
 const Editable = (args) => {
   return (
     <textarea id={args.id} value={args.value} onChange={args.onChange} onKeyDown={args.onKeyDown}
-      onFocusOut={() => args.app_state.server_update(args.data)} />
+      onBlur={() => server_update(args.data)} />
   )
 }
 function parse_options(text) {
@@ -325,9 +314,17 @@ function parse_options(text) {
     return [];
   }
 }
-const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index }) => {
+const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index, prompt_area_options_dict }) => {
   // const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
-  var thisOptionCorrect = data.options_dict[option]['correct']
+  var options_dict = {}
+  if (prompt_area) {
+    options_dict = prompt_area_options_dict
+
+  } else {
+    options_dict = data.options_dict
+  }
+
+  var thisOptionCorrect = options_dict[option]['correct']
   const color_logprobs = (logprob) => {
     if (logprob == 'None') {
       return 'white';
@@ -346,17 +343,18 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
       return 'lightpink'
     }
   }
-  var logprob = data.options_dict[option]['logprob']
-
-  var author = data.options_dict[option]['author']
+  var logprob = options_dict[option]['logprob']
+  const author = options_dict[option]['author']
+  var author_name = author
   //try looking up in engine_dict
   if (Object.keys(engines).includes(author)) {
-    author = engines[author].vshortname
+    author_name = engines[author].vshortname
   }
 
   const handle_click = () => {
-    console.log('thisOptionCorrect', thisOptionCorrect)
-    const option_correct_at_start = thisOptionCorrect
+    console.log('thisOptionCorrect', thisOptionCorrect);
+    const option_correct_at_start = thisOptionCorrect;
+
 
     if (prompt_area) {
       //if we're in the prompt area, we want to try updating both the prompt area and the first dataset entry
@@ -364,12 +362,11 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
 
       state.update_prompt_area_options_dict(option, !option_correct_at_start)
       const first_time_id = state.get_first_time_id()
-      server_update_option_correct(option, !option_correct_at_start, first_time_id)
+      console.log('updating first dataset entry', first_time_id, 'to ', !option_correct_at_start)
       state.update_dataset_options(option, !option_correct_at_start, first_time_id)
     } else { //in dataset log
       console.log('sending to server with time_id ', data.time_id)
       console.log('sending to server with new_correct_options ', !option_correct_at_start)
-      server_update_option_correct(option, !option_correct_at_start, data.time_id)
 
       console.log('updating dataset options', option, !option_correct_at_start)
       state.update_dataset_options(option, !option_correct_at_start, data.time_id)
@@ -378,28 +375,55 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
     // console.log('correct options after update', correct_options)
     // setThisOptionCorrect(!option_correct_at_start)
     thisOptionCorrect = !option_correct_at_start
+    console.log('thisOptionCorrect', thisOptionCorrect)
+
   }
+  const handle_author_toggle = (data) => {
+    var new_author = ""
+    if (Object.keys(engines).includes(author)) {
+      //set author to the human author
+      new_author = data['author']
+
+
+    } else {
+      //set author to the engine 
+      new_author = data["engine"]
+      author_name = engines[new_author].vshortname
+    }
+
+    state.handle_option_author_change(option, data, new_author)
+  }
+
 
   return (
     <tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }} >
-      <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }} onClick={() => handle_click()}>{local_index + 1}</td>
+      <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
+        onClick={(e) => handle_click()}>{local_index + 1}</td>
       <td className="option_text_td">{option} </td>
-      <td className="author_td">{author}</td>
+      <td className="author_td" onClick={() => handle_author_toggle(data)}>{author}</td>
       <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
     </tr >);
 
 }
-const OptionsAnswersList = ({ data, pos_index, state, prompt_area }) => {
+const OptionsAnswersList = ({ data, pos_index, state, prompt_area, prompt_area_options_dict }) => {
 
   var jsx = '';
 
-  const option_list = Object.keys(data.options_dict);
-  // console.log('option_list', option_list);
+  var options_dict = {}
+  if (prompt_area) {
+    options_dict = prompt_area_options_dict
+
+  } else {
+    options_dict = data.options_dict
+  }
+  const option_list = Object.keys(options_dict)
+  console.log('option_list', option_list);
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, local_index) =>
-      <SingleOption key={data.time_id + ' ' + option} option={option} data={data} state={state}
-        pos_index={pos_index} prompt_area={prompt_area} local_index={local_index} />
+      <SingleOption key={local_index + ' ' + pos_index + ' ' + prompt_area + ' ' + option} option={option} data={data} state={state}
+        pos_index={pos_index} prompt_area={prompt_area} local_index={local_index}
+        prompt_area_options_dict={prompt_area_options_dict} />
 
 
     );
@@ -654,7 +678,7 @@ You have a smart AI assistant, which is another program running on the same comp
           <tbody>
             <OptionsAnswersList
               prompt_area={true}
-              data={{ 'options_dict': app_state.prompt_area_options_dict }} state={app_state} />
+              prompt_area_options_dict={app_state.prompt_area_options_dict} state={app_state} />
           </tbody>
         </table>
       </div>
@@ -673,6 +697,7 @@ function App() {
   const [newlines, setNewlines] = useState(false);
   const [prompt_area_options_dict, setPromptAreaOptionsDict] = useState({});
   const [text, setText] = useState('');
+  const [first_id, setFirstId] = useState('');
 
 
 
@@ -683,6 +708,7 @@ function App() {
     get_dataset_logs_from_server().then(loaded_logs => {
       setDatasetLogs(loaded_logs)
       console.log('loadedlogs[0].show:', loaded_logs[0].show);
+      setFirstId(loaded_logs[0].time_id);
     })
 
   }, []);
@@ -695,18 +721,20 @@ function App() {
   const add_dataset_log = (data) => {
     console.log('add_dataset_log, data: ' + data);
     setDatasetLogs([...dataset_logs, data])
+    setFirstId(data.time_id);
 
   }
   const update_dataset_options = (option, new_val, time_id) => {
-    const new_dataset_logs = dataset_logs.map(log => {
-      if (log.time_id === time_id) {
-        if (Object.keys(log.options_dict).includes(option)) {
-          log.options_dict[option]['correct'] = new_val;
-        }
-      }
-      return log;
-    })
-    setDatasetLogs(new_dataset_logs)
+    var newdata = dataset_logs.filter(log => log.time_id === time_id)[0];
+    console.log('update_dataset_options, newdata before: ', newdata);
+    console.log('keys: ', Object.keys(newdata.options_dict));
+    console.log('option', option);
+    if (Object.keys(newdata.options_dict).includes(option)) {
+      newdata.options_dict[option]['correct'] = new_val;
+      console.log('update_dataset_options, newdata after: ', newdata);
+      update_dataset_example(newdata)
+      server_update(newdata)
+    }
   }
   const update_dataset_example = (data) => {
     const new_dataset_logs = dataset_logs.map(log => {
@@ -718,11 +746,7 @@ function App() {
     setDatasetLogs(new_dataset_logs)
   }
   const get_first_time_id = () => {
-    if (dataset_logs.length > 0) {
-      return dataset_logs[0].time_id;
-    } else {
-      return 0;
-    }
+    return first_id;
   }
   const update_first_dataset_options = (option, new_val) => {
     const new_dataset_logs = dataset_logs.map((log, index) => {
@@ -735,24 +759,43 @@ function App() {
     })
     setDatasetLogs(new_dataset_logs)
   }
-  const handle_notes_change = (e, data) => {
+  const handle_notes_change = (e, data, push) => {
     data.notes = e.target.value;
     update_dataset_example(data);
+    if (push) {
+      server_update(data)
+    }
   }
-  const handle_author_change = (e, data) => {
+  const handle_author_change = (e, data, push) => {
     data.author = e.target.value;
+    console.log(e.target.value)
+    console.log(data)
     update_dataset_example(data);
+    if (push) {
+      server_update(data)
+    }
   }
 
+  const handle_option_author_change = (option, data, author) => {
+    data['options_dict'][option]['author'] = author;
+    console.log(data)
+    update_dataset_example(data);
+    server_update(data)
+  }
 
 
   const update_prompt_area_options_dict = (option, new_val) => {
-    console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
+    // console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
     if (Object.keys(prompt_area_options_dict).includes(option)) {
-      console.log('found option');
-      var new_dict = prompt_area_options_dict;
+      // console.log('found option');
+      var new_dict = Object.assign({}, prompt_area_options_dict);
+      // console.log('new_dict,before: ', new_dict[option]);
       new_dict[option]['correct'] = new_val;
+      // console.log('new_dict,after: ', new_dict[option]);
+
       setPromptAreaOptionsDict(new_dict);
+
+      // console.log('just set prompt_area_options_dict: ', prompt_area_options_dict);
     }
 
   }
@@ -831,6 +874,8 @@ function App() {
     text: text,
     setText: setText,
     handle_notes_change: handle_notes_change,
+    handle_option_author_change: handle_option_author_change,
+    handle_author_change: handle_author_change,
 
   }
 
