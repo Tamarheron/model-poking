@@ -4,16 +4,12 @@ import json
 from flask import Flask
 import os
 import argparse
-from importlib_metadata import metadata
 import openai
 import time
 import os
 from flask_sqlalchemy import SQLAlchemy
-from requests import session
 from sqlalchemy.engine import Connection
 from dataclasses import dataclass
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, Session
 import dataclasses
 
 
@@ -26,8 +22,10 @@ app = Flask(__name__, static_url_path="", static_folder="frontend/build")
 #     )
 # app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or "DEVELOPMENT SECRET KEY"
 # app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False  # get rid of warning
-
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///test_database.db"
+database_url = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
+    "postgres://", "postgresql://"
+)
 
 db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
@@ -150,7 +148,7 @@ def update_options_dict(item):
         d["text"] = text
         d["logprob"] = -100.0 if d["logprob"] == "None" else float(d["logprob"])
         d["id"] = text + str(item["time_id"])
-        print(d["author"])
+        # print(d["author"])
         # d["author"] = d["author"]
         item["options_dict"].append(Option(**d))
 
@@ -161,14 +159,16 @@ def file_to_db(filename):
     for line in data:
         item = json.loads(line)
         update_options_dict(item)
-        if filename == "dataset.txt":
+        if filename[-11:] == "dataset.txt":
             item["show"] = True
-        print(item["show"])
         item.pop("options")
         if item.get("correct_options"):
             item.pop("correct_options")
-        db.session.add(DatasetExample(**item))
-        db.session.commit()
+
+        # check if already in db
+        if not DatasetExample.query.filter_by(time_id=item["time_id"]).first():
+            db.session.add(DatasetExample(**item))
+            db.session.commit()
 
 
 def update_all_show():
@@ -295,7 +295,9 @@ def update_dataset_log():
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
     print("get_dataset_logs")
-    stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
+    stmt = (
+        db.session.query(DatasetExample).filter(DatasetExample.show == True).all()[-30:]
+    )
     print(stmt[0].options_dict)
     dict_list = [to_dict(x) for x in stmt]
     # print(dict_list[1])
