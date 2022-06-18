@@ -17,7 +17,7 @@ from sqlalchemy.orm import declarative_base, Session
 import dataclasses
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path="", static_folder="frontend/build")
 
 # database_url = os.getenv("DATABASE_URL")
 # if database_url:
