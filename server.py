@@ -1,7 +1,7 @@
 import string
 import flask
 import json
-from flask import Flask
+from flask import Flask, send_file
 import os
 import argparse
 import openai
@@ -221,6 +221,11 @@ def submit_prompt():
     return flask.jsonify(data)
 
 
+@app.route("/")
+def model_poking():
+    return send_file(__file__[:-6] + "frontend/build/index.html")
+
+
 @app.route("/submit_options", methods=["POST"])
 def get_answer():
     print("submit_options")
@@ -335,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument("--file_to_db", action="store_true")
     parser.add_argument("--update_all_show", action="store_true")
     # add argument for port
-    parser.add_argument("--port", type=int, default=5004)
+    parser.add_argument("--port", type=int, default=5003)
     args = parser.parse_args()
     port = args.port
     if args.file_to_db:
