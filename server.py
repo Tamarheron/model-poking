@@ -50,6 +50,8 @@ class Option(db.Model):
     example_id: int
     example_id = db.Column(db.Integer, db.ForeignKey("dataset_example.time_id"))
     dataset_example = db.relationship("DatasetExample", back_populates="options_dict")
+    reasoning: string
+    reasoning = db.Column(db.String)
 
 
 @dataclass
@@ -279,15 +281,19 @@ def update_dataset_log():
     stmt.star = data.get("star", False)
     stmt.main = data.get("main", True)
     stmt.author = data["author"]
+
     db.session.commit()
 
     # update options table also
     for k in data["options_dict"].keys():
         option = data["options_dict"][k]
         stmt = db.session.query(Option).filter(Option.id == option["id"]).first()
+
         stmt.correct = option["correct"]
         stmt.logprob = option["logprob"]
-        stmt.author = option["author"]
+        stmt.author = option.get("author", "")
+        stmt.reasoning = option.get("reasoning", "")
+        print(stmt)
         db.session.commit()
 
     return "saved"
@@ -297,6 +303,8 @@ def update_dataset_log():
 def get_dataset_logs():
     print("get_dataset_logs")
     stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
+    if app.debug:
+        stmt = stmt[-5:]
     print(stmt[0].options_dict)
     dict_list = [to_dict(x) for x in stmt]
     # print(dict_list[1])

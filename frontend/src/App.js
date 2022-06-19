@@ -55,6 +55,7 @@ async function get_dataset_example(data) {
 }
 async function server_update(data, dataset = true) {
   // send text, temperature to Flask backend
+  console.log('server_update, data: ' + data);
   console.log('updating example', data.time_id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
@@ -234,12 +235,16 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
                 </td>
               </tr>
               <tr >
-                <td className="dataset_log_buttons_td" colSpan={3} >
-                  <Editable
+                <td className="dataset_log_buttons_td" colSpan={4} >
+                  <textarea
+                    className="reasoning"
                     key={data.time_id + ' notes'}
                     id="notes"
                     value={notes}
                     onChange={(e) => app_state.handle_notes_change(e, data, false)}
+                    onBlur={(e) => app_state.handle_notes_change(e, data, true)}
+                    onClick={(e) => app_state.handle_notes_change(e, data, false)}
+                    rows={1}
                     data={data}
                     app_state={app_state} />
 
@@ -267,6 +272,7 @@ const DatasetLogs = ({ app_state }) => {
     'update_dataset_options': app_state.update_dataset_options,
     'get_first_time_id': app_state.get_first_time_id,
     'handle_option_author_change': app_state.handle_option_author_change,
+    'handle_reasoning_text_change': app_state.handle_reasoning_text_change,
 
   }
 
@@ -294,12 +300,7 @@ const LogButton = (args) => {
   )
 }
 
-const Editable = (args) => {
-  return (
-    <textarea id={args.id} value={args.value} onChange={args.onChange} onKeyDown={args.onKeyDown}
-      onBlur={() => server_update(args.data)} />
-  )
-}
+
 function parse_options(text) {
   if (text.includes('Options:\n')) {
     const option_text = String(text.split('Options:\n').slice(-1))
@@ -393,16 +394,33 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
 
     state.handle_option_author_change(option, data, new_author)
   }
+  var reasoning_text = ""
+  if (options_dict[option]['reasoning'] != undefined) {
+    reasoning_text = options_dict[option]['reasoning']
+  }
 
+  var reasoning_jsx = ""
+  if (!prompt_area) {
+    reasoning_jsx = <tr>
+      <td colSpan='4' className='reasoning'>
+        <textarea id={option} rows={1} value={reasoning_text} className='reasoning'
+          onChange={(e) => { state.handle_reasoning_text_change(option, data, e, false); }}
+          onClick={(e) => { state.handle_reasoning_text_change(option, data, e, false); }}
+
+          onBlur={(e) => { state.handle_reasoning_text_change(option, data, e, true) }} />
+      </td>
+    </tr>
+  }
 
   return (
-    <tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }} >
+    <><tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }}>
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
         onClick={(e) => handle_click()}>{local_index + 1}</td>
       <td className="option_text_td">{option} </td>
       <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
       <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
-    </tr >);
+    </tr>{reasoning_jsx}</>
+  )
 
 }
 const OptionsAnswersList = ({ data, pos_index, state, prompt_area, prompt_area_options_dict }) => {
@@ -417,7 +435,6 @@ const OptionsAnswersList = ({ data, pos_index, state, prompt_area, prompt_area_o
     options_dict = data.options_dict
   }
   const option_list = Object.keys(options_dict)
-  console.log('option_list', option_list);
 
   if (option_list.length > 0) {
     jsx = option_list.map((option, local_index) =>
@@ -760,6 +777,7 @@ function App() {
     setDatasetLogs(new_dataset_logs)
   }
   const handle_notes_change = (e, data, push) => {
+    resize(e)
     data.notes = e.target.value;
     update_dataset_example(data);
     if (push) {
@@ -775,12 +793,38 @@ function App() {
       server_update(data)
     }
   }
+  const resize = (e) => {
+    e.target.style.height = 'inherit';
+
+    // Get the computed styles for the element
+    const computed = window.getComputedStyle(e.target);
+
+    // Calculate the height
+    const height = parseInt(computed.getPropertyValue('border-top-width'), 10)
+      + parseInt(computed.getPropertyValue('padding-top'), 10)
+      + e.target.scrollHeight
+      + parseInt(computed.getPropertyValue('padding-bottom'), 10)
+      + parseInt(computed.getPropertyValue('border-bottom-width'), 10) - 5;
+
+    e.target.style.height = `${height}px`;
+  }
 
   const handle_option_author_change = (option, data, author) => {
     data['options_dict'][option]['author'] = author;
     console.log(data)
     update_dataset_example(data);
     server_update(data)
+  }
+  const handle_reasoning_text_change = (option, data, e, push) => {
+    resize(e)
+    console.log('handle_reasoning_text_change, data: ', data, 'push is: ', push);
+    if (push) {
+      console.log('about to call server update with', data)
+      server_update(data)
+    } else {
+      data['options_dict'][option]['reasoning'] = e.target.value;
+      update_dataset_example(data);
+    }
   }
 
 
@@ -876,6 +920,7 @@ function App() {
     handle_notes_change: handle_notes_change,
     handle_option_author_change: handle_option_author_change,
     handle_author_change: handle_author_change,
+    handle_reasoning_text_change: handle_reasoning_text_change,
 
   }
 

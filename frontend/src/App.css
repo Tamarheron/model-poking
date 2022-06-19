@@ -46,10 +46,11 @@ div {
 textarea {
   width: 100%;
   height: fit-content;
-  padding: 10px;
+  padding: 5px;
   border: 1px solid #ccc;
   border-radius: 3px;
-  margin-bottom: 10px;
+  margin-bottom: 3px;
+  box-sizing: border-box;
 }
 
 input {
@@ -58,12 +59,33 @@ input {
 }
 
 td {
-  padding: 10px;
+  padding: 3px;
   border: 1px solid black;
+}
 
-
+td.reasoning {
+  width: 100%;
+  height: fit-content;
+  padding: 0px;
+  border: 0px;
+  border-radius: 3px;
+  margin-bottom: 3px;
 
 }
+
+textarea.reasoning {
+  width: 100%;
+  height: fit-content;
+  padding: 3px;
+  border: 1px solid #ccc;
+  border-radius: 0px;
+  margin-bottom: 0px;
+  box-sizing: border-box;
+  font-size: small;
+  font-family: Arial, Helvetica, sans-serif;
+  resize: vertical
+}
+
 
 table {
   border-collapse: separate;
@@ -170,13 +192,18 @@ input[type="number"] {
 }
 
 .individual_option_row {
+  border-top: #ccc 2px solid;
   text-align: left;
-  border-collapse: collapse;
+  padding: 0px;
+  margin: 0px;
+  border: 0px;
 }
 
 .option_text_td {
   padding: 3px;
-  border: 0px;
+  border: 3px;
+  margin: 3px;
+
 }
 
 .prompt_td {
