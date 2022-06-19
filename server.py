@@ -223,7 +223,7 @@ def submit_prompt():
 
 @app.route("/")
 def model_poking():
-    return send_file(__file__[:-6] + "frontend/build/index.html")
+    return send_file(__file__[:-9] + "frontend/build/index.html")
 
 
 @app.route("/submit_options", methods=["POST"])
