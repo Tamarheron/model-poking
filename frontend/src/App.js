@@ -273,6 +273,7 @@ const DatasetLogs = ({ app_state }) => {
     'get_first_time_id': app_state.get_first_time_id,
     'handle_option_author_change': app_state.handle_option_author_change,
     'handle_reasoning_text_change': app_state.handle_reasoning_text_change,
+    'handle_rating_change': app_state.handle_rating_change,
 
   }
 
@@ -381,6 +382,7 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
   }
   const handle_author_toggle = (data) => {
     var new_author = ""
+    console.log(data)
     if (Object.keys(engines).includes(author)) {
       //set author to the human author
       new_author = data['author']
@@ -388,9 +390,16 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
 
     } else {
       //set author to the engine 
-      new_author = data["engine"]
+      new_author = 'text-davinci-002'
+      if (data['engine'] != undefined) {
+        new_author = data['engine']
+      }
+      console.log('new_author', new_author)
+      console.log(engines[new_author])
       author_name = engines[new_author].vshortname
     }
+
+    //TODO: this errors if we're in the prompt area
 
     state.handle_option_author_change(option, data, new_author)
   }
@@ -398,16 +407,28 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
   if (options_dict[option]['reasoning'] != undefined) {
     reasoning_text = options_dict[option]['reasoning']
   }
+  var rating_value = ""
+  if (options_dict[option]['rating'] != undefined) {
+    rating_value = options_dict[option]['rating']
+  }
 
   var reasoning_jsx = ""
   if (!prompt_area) {
     reasoning_jsx = <tr>
-      <td colSpan='4' className='reasoning'>
+      <td colSpan='2' className='reasoning'>
         <textarea id={option} rows={1} value={reasoning_text} className='reasoning'
           onChange={(e) => { state.handle_reasoning_text_change(option, data, e, false); }}
           onClick={(e) => { state.handle_reasoning_text_change(option, data, e, false); }}
 
           onBlur={(e) => { state.handle_reasoning_text_change(option, data, e, true) }} />
+      </td>
+      <td colSpan='2' className='reasoning' value={rating_value} onChange={(e) => { state.handle_rating_change(option, data, e.target.value) }}>
+        <select className='reasoning'>
+          <option value="clear">clear</option>
+          <option value="ok">ok</option>
+          <option value="unclear">unclear</option>
+          <option value="wrong">wrong</option>
+        </select>
       </td>
     </tr>
   }
@@ -815,6 +836,15 @@ function App() {
     update_dataset_example(data);
     server_update(data)
   }
+
+
+  const handle_rating_change = (option, data, rating) => {
+    data['options_dict'][option]['rating'] = rating;
+    console.log(data)
+    update_dataset_example(data);
+    server_update(data)
+  }
+
   const handle_reasoning_text_change = (option, data, e, push) => {
     resize(e)
     console.log('handle_reasoning_text_change, data: ', data, 'push is: ', push);
@@ -921,6 +951,7 @@ function App() {
     handle_option_author_change: handle_option_author_change,
     handle_author_change: handle_author_change,
     handle_reasoning_text_change: handle_reasoning_text_change,
+    handle_rating_change: handle_rating_change,
 
   }
 

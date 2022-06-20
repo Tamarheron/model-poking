@@ -27,6 +27,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
     "postgres://", "postgresql://"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+openai.api_kay = os.getenv("ARC_OPENAI_API_KEY")
 
 db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
@@ -52,6 +53,8 @@ class Option(db.Model):
     dataset_example = db.relationship("DatasetExample", back_populates="options_dict")
     reasoning: string
     reasoning = db.Column(db.String)
+    rating: string
+    rating = db.Column(db.String)
 
 
 @dataclass
@@ -298,6 +301,7 @@ def update_dataset_log():
         stmt.logprob = option["logprob"]
         stmt.author = option.get("author", "")
         stmt.reasoning = option.get("reasoning", "")
+        stmt.rating = option.get("rating", "")
         print(stmt)
         db.session.commit()
 
