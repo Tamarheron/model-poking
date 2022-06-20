@@ -73,7 +73,8 @@ td.reasoning {
 
 }
 
-textarea.reasoning {
+textarea.reasoning,
+select.reasoning {
   width: 100%;
   height: fit-content;
   padding: 3px;
