@@ -111,7 +111,7 @@ async function get_dataset_logs_from_server() {
 }
 
 
-const Logs = ({ logs, remove_log_by_id, white_space_style, app_state }) => {
+const Logs = ({ logs, white_space_style, app_state }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
 
@@ -342,6 +342,10 @@ function sameData(data, new_data) {
         return false
       }
     }
+    if (data.options_dict[key]['correct'] != new_data.options_dict[key]['correct']) {
+      console.log('options changed at ', key, 'correct');
+      return false
+    }
 
   } console.log('data unchanged');
   return true
@@ -418,6 +422,7 @@ const SingleOption = (({
     const option_correct_at_start = thisOptionCorrect;
 
 
+    const ob = { 'target': { 'value': !option_correct_at_start } }
     if (prompt_area) {
       //if we're in the prompt area, we want to try updating both the prompt area and the first dataset entry
       console.log('updating prompt area', option, option_correct_at_start)
@@ -425,13 +430,13 @@ const SingleOption = (({
       state.update_prompt_area_options_dict(option, !option_correct_at_start)
       const first_time_id = state.get_first_time_id()
       console.log('updating first dataset entry', first_time_id, 'to ', !option_correct_at_start)
-      state.update_dataset_options(option, !option_correct_at_start, first_time_id)
+      state.handle_option_change(ob, option, { 'time_id': first_time_id }, 'correct', true)
     } else { //in dataset log
       console.log('sending to server with time_id ', data.time_id)
       console.log('sending to server with new_correct_options ', !option_correct_at_start)
 
       console.log('updating dataset options', option, !option_correct_at_start)
-      state.update_dataset_options(option, !option_correct_at_start, data.time_id)
+      state.handle_option_change(ob, option, data, 'correct', true)
 
     }
     // console.log('correct options after update', correct_options)
@@ -836,18 +841,18 @@ function App() {
     setFirstId(data.time_id);
 
   }
-  const update_dataset_options = (option, new_val, time_id) => {
-    var newdata = dataset_logs.filter(log => log.time_id === time_id)[0];
-    console.log('update_dataset_options, newdata before: ', newdata);
-    console.log('keys: ', Object.keys(newdata.options_dict));
-    console.log('option', option);
-    if (Object.keys(newdata.options_dict).includes(option)) {
-      newdata.options_dict[option]['correct'] = new_val;
-      console.log('update_dataset_options, newdata after: ', newdata);
-      update_dataset_example(newdata)
-      server_update(newdata)
-    }
-  }
+  // const update_dataset_options = (option, new_val, time_id) => {
+  //   var newdata = dataset_logs.filter(log => log.time_id === time_id)[0];
+  //   console.log('update_dataset_options, newdata before: ', newdata);
+  //   console.log('keys: ', Object.keys(newdata.options_dict));
+  //   console.log('option', option);
+  //   if (Object.keys(newdata.options_dict).includes(option.id)) {
+  //     newdata.options_dict[option.id]['correct'] = new_val;
+  //     console.log('update_dataset_options, newdata after: ', newdata);
+  //     update_dataset_example(newdata)
+  //     server_update(newdata)
+  //   }
+  // }
   const update_dataset_example = (data) => {
     setDatasetLogs(function (old) {
       return [...old.filter(log => log.time_id !== data.time_id), data]
@@ -926,7 +931,7 @@ function App() {
 
   }
   var handle_save = (data) => {
-    var newdata = data
+    var newdata = { ...data }
     newdata['star'] = true;
     console.log('saving ID ' + newdata.time_id);
     server_update(newdata);
@@ -935,7 +940,7 @@ function App() {
   }
 
   var handle_unsave = (data) => {
-    var newdata = data
+    var newdata = { ...data }
     newdata['star'] = false;
     console.log('unsaving ID ' + newdata.time_id);
     server_update(newdata);
@@ -944,7 +949,7 @@ function App() {
   }
   var handle_hide = (data) => {
     console.log('hiding ID ' + data.time_id);
-    var newdata = data
+    var newdata = { ...data }
     newdata['show'] = false;
     server_update(newdata);
     // update logs
@@ -953,7 +958,7 @@ function App() {
   }
   var handle_archive = (data) => {
     console.log('archiving ID ' + data.time_id);
-    var newdata = data
+    var newdata = { ...data }
     newdata['main'] = false;
     newdata['show'] = false;
     server_update(newdata);
@@ -981,7 +986,6 @@ function App() {
     newlines: newlines,
     add_log: add_log,
     add_dataset_log: add_dataset_log,
-    update_dataset_options: update_dataset_options,
     remove_log: remove_log,
     white_space_style: white_space_style,
     prompt_area_options_dict: prompt_area_options_dict,
