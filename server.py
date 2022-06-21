@@ -314,6 +314,8 @@ def get_dataset_logs():
     stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
     if app.debug:
         stmt = stmt[:5]
+    else:
+        stmt = stmt[:50]
     print(stmt[0].options_dict)
     print(stmt[-1].options_dict)
 
@@ -326,6 +328,7 @@ def get_dataset_logs():
 def get_logs():
     print("get_logs")
     stmt = db.session.query(Completion).all()
+    stmt = stmt[:10]
     dict_list = [dataclasses.asdict(x) for x in stmt]
     # print(dict_list[1])
     return json.dumps(dict_list)
