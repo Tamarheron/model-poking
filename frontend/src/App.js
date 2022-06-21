@@ -419,7 +419,6 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
   if (options_dict[option]['rating'] != undefined) {
     rating_value = options_dict[option]['rating']
   }
-  console.log('rating_value', rating_value)
   var reasoning_jsx = ""
   var option_jsx = <td className="option_text">{option} </td>
 
