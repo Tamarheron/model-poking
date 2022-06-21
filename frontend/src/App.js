@@ -1,6 +1,7 @@
 
 import './App.css';
 import React, { useEffect, useState } from 'react';
+import TextareaAutosize from 'react-textarea-autosize';
 
 
 //short name:long name
@@ -55,7 +56,7 @@ async function get_dataset_example(data) {
 }
 async function server_update(data, dataset = true) {
   // send text, temperature to Flask backend
-  console.log('server_update, data: ' + data);
+  console.log('server_update, data: ', data);
   console.log('updating example', data.time_id);
   const headers = { 'Content-Type': 'application/json' }
   const args = {
@@ -189,9 +190,18 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
   if (data['show'] === true) {
     example =
       <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: app_state.white_space_style }}>
-        <td className="dataset_log_options_td">
+        <td className="interaction">
           <div>
-            {data.interaction}
+            <TextareaAutosize
+              key={data.time_id + '  interaction'}
+              className="interaction"
+              id="notes"
+              maxRows={50}
+              value={data.interaction}
+              onChange={(e) => app_state.handle_change(e, data, 'interaction', false, true)}
+              onBlur={(e) => app_state.handle_change(e, data, 'interaction', true, true)}
+            />
+
             <button value={data.interaction} onClick={(e) => app_state.setText(e.target.value)}>use as prompt</button>
           </div>
         </td>
@@ -224,8 +234,8 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
                         className="author_edit"
                         id="author_edit"
                         value={author}
-                        onChange={(e) => app_state.handle_author_change(e, data, false)}
-                        onBlur={(e) => app_state.handle_author_change(e, data, true)}
+                        onChange={(e) => app_state.handle_change(e, data, 'author', false)}
+                        onBlur={(e) => app_state.handle_change(e, data, 'author', true)}
                       />
                     </label>
                   </div>
@@ -236,15 +246,14 @@ const OptionsLog = ({ app_state, data, pos_index, state }) => {
               </tr>
               <tr >
                 <td className="dataset_log_buttons_td" colSpan={4} >
-                  <textarea
+                  <TextareaAutosize
                     className="reasoning"
                     key={data.time_id + ' notes'}
-                    id="notes"
                     value={notes}
-                    onChange={(e) => app_state.handle_notes_change(e, data, false)}
-                    onBlur={(e) => app_state.handle_notes_change(e, data, true)}
-                    onClick={(e) => app_state.handle_notes_change(e, data, false)}
-                    rows={1}
+                    onChange={(e) => app_state.handle_change(e, data, 'notes', false, true)}
+                    onBlur={(e) => app_state.handle_change(e, data, 'notes', true, true)}
+                    onClick={(e) => app_state.handle_change(e, data, 'notes', false, true)}
+                    maxRows={10}
                     data={data}
                     app_state={app_state} />
 
@@ -271,9 +280,8 @@ const DatasetLogs = ({ app_state }) => {
     'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
     'update_dataset_options': app_state.update_dataset_options,
     'get_first_time_id': app_state.get_first_time_id,
-    'handle_option_author_change': app_state.handle_option_author_change,
-    'handle_reasoning_text_change': app_state.handle_reasoning_text_change,
-    'handle_rating_change': app_state.handle_rating_change,
+    'handle_change': app_state.handle_change,
+    'handle_option_change': app_state.handle_option_change,
 
   }
 
@@ -400,8 +408,8 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
     }
 
     //TODO: this errors if we're in the prompt area
-
-    state.handle_option_author_change(option, data, new_author)
+    const ob = { 'target': { 'value': new_author } }
+    state.handle_option_change(ob, option, data, 'author', true)
   }
   var reasoning_text = ""
   if (options_dict[option]['reasoning'] != undefined) {
@@ -411,19 +419,22 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
   if (options_dict[option]['rating'] != undefined) {
     rating_value = options_dict[option]['rating']
   }
-
+  console.log('rating_value', rating_value)
   var reasoning_jsx = ""
+  var option_jsx = <td className="option_text">{option} </td>
+
   if (!prompt_area) {
+
     reasoning_jsx = <tr>
       <td colSpan='2' className='reasoning'>
         <textarea id={option} rows={1} value={reasoning_text} className='reasoning'
-          onChange={(e) => { state.handle_reasoning_text_change(option, data, e, false); }}
-          onClick={(e) => { state.handle_reasoning_text_change(option, data, e, false); }}
+          onChange={(e) => { state.handle_option_change(e, option, data, 'reasoning', false, true); }}
+          onClick={(e) => { state.handle_option_change(e, option, data, 'reasoning', false, true); }}
 
-          onBlur={(e) => { state.handle_reasoning_text_change(option, data, e, true) }} />
+          onBlur={(e) => { state.handle_option_change(e, option, data, 'reasoning', true, true) }} />
       </td>
-      <td colSpan='2' className='reasoning' value={rating_value} onChange={(e) => { state.handle_rating_change(option, data, e.target.value) }}>
-        <select className='reasoning'>
+      <td colSpan='2' className='rating' >
+        <select className='rating' value={rating_value} onChange={(e) => { state.handle_option_change(e, option, data, 'rating', true) }}>
           <option value="clear">clear</option>
           <option value="ok">ok</option>
           <option value="unclear">unclear</option>
@@ -431,19 +442,31 @@ const SingleOption = ({ option, data, pos_index, state, prompt_area, local_index
         </select>
       </td>
     </tr>
+
+    option_jsx = <td className='option_text'>
+      <TextareaAutosize
+        className="option_text"
+        value={options_dict[option]['text']}
+        maxRows={8}
+        onBlur={(e) => state.handle_option_change(e, option, data, 'text', true, true)}
+        onClick={(e) => state.handle_option_change(e, option, data, 'text', true, true)}
+        onChange={(e) => state.handle_option_change(e, option, data, 'text', false, true)}
+      />
+    </td>
+
   }
 
   return (
     <><tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }}>
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
-        onClick={(e) => handle_click()}>{local_index + 1}</td>
-      <td className="option_text_td">{option} </td>
+        onClick={(e) => handle_click()}>{local_index + 1}</td>{option_jsx}
       <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
       <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
     </tr>{reasoning_jsx}</>
   )
 
 }
+
 const OptionsAnswersList = ({ data, pos_index, state, prompt_area, prompt_area_options_dict }) => {
 
   var jsx = '';
@@ -631,7 +654,7 @@ You have a smart AI assistant, which is another program running on the same comp
     if (show_setting) {
       return (
         <div >
-          <textarea key="setting_textarea" id="setting_textarea" rows="15" value={setting} onChange={(e) => setSetting(e.target.value)} />
+          <TextareaAutosize key="setting_textarea" id="setting_textarea" maxRows="25" value={setting} onChange={(e) => setSetting(e.target.value)} />
           <br></br>
         </div>
       )
@@ -696,13 +719,13 @@ You have a smart AI assistant, which is another program running on the same comp
       </div>
       {SettingBox()}
       <div onKeyDown={handle_prompt_keypress}>
-        <textarea key="prompt_textarea" className='prompt_textarea' id="prompt_textarea" style={{ whiteSpace: "pre-wrap" }}
+        <TextareaAutosize key="prompt_textarea" className='prompt_textarea' minRows={15} maxRows={50} id="prompt_textarea" style={{ whiteSpace: "pre-wrap" }}
           value={text} onChange={(e) => handle_text_change(e.target)} />
         <br></br>
         <button id="submit_prompt" onClick={() => get_completion()}>get completion</button>
       </div>
       <div onKeyDown={handle_option_keypress}>
-        <textarea key="option_textarea" id="option_textarea" rows="1" value={option_text} onChange={(e) => setOptionText(e.target.value)} />
+        <TextareaAutosize key="option_textarea" id="option_textarea" value={option_text} onChange={(e) => setOptionText(e.target.value)} />
         <br></br>
         <button id="submit_option" onClick={() => submit_option()}>add option to prompt</button>
         <button id="get_answers" onClick={() => get_answers()}>get logprobs from model</button>
@@ -786,34 +809,21 @@ function App() {
   const get_first_time_id = () => {
     return first_id;
   }
-  const update_first_dataset_options = (option, new_val) => {
-    const new_dataset_logs = dataset_logs.map((log, index) => {
-      if (index === 0) {
-        if (Object.keys(log.options_dict).includes(option)) {
-          log.options_dict[option]['correct'] = new_val;
-        }
-      }
-      return log;
-    })
-    setDatasetLogs(new_dataset_logs)
-  }
-  const handle_notes_change = (e, data, push) => {
-    resize(e)
-    data.notes = e.target.value;
-    update_dataset_example(data);
-    if (push) {
-      server_update(data)
+  const handle_change = (e, data, field, push = true, resiz = false) => {
+    if (resiz) {
+      resize(e)
     }
-  }
-  const handle_author_change = (e, data, push) => {
-    data.author = e.target.value;
+    console.log('field: ', field, 'new value: ', e.target.value);
+    var new_data = Object.assign({}, data);
+    new_data[field] = e.target.value;
     console.log(e.target.value)
-    console.log(data)
-    update_dataset_example(data);
+    console.log(new_data)
+    update_dataset_example(new_data);
     if (push) {
-      server_update(data)
+      server_update(new_data)
     }
   }
+
   const resize = (e) => {
     e.target.style.height = 'inherit';
 
@@ -829,33 +839,24 @@ function App() {
 
     e.target.style.height = `${height}px`;
   }
+  const handle_option_change = (e, option, data, field, push = true, resiz = false) => {
+    if (resiz) {
+      resize(e)
+    }
 
-  const handle_option_author_change = (option, data, author) => {
-    data['options_dict'][option]['author'] = author;
-    console.log(data)
-    update_dataset_example(data);
-    server_update(data)
-  }
-
-
-  const handle_rating_change = (option, data, rating) => {
-    data['options_dict'][option]['rating'] = rating;
-    console.log(data)
-    update_dataset_example(data);
-    server_update(data)
-  }
-
-  const handle_reasoning_text_change = (option, data, e, push) => {
-    resize(e)
-    console.log('handle_reasoning_text_change, data: ', data, 'push is: ', push);
+    console.log('field: ', field, 'new value: ', e.target.value);
+    var new_data = Object.assign({}, data);
+    new_data['options_dict'][option][field] = e.target.value;
+    console.log('new_data[options_dict][option]', new_data['options_dict'][option])
+    console.log('new_data[options_dict][option][field]', new_data['options_dict'][option][field])
+    console.log('new data: ', new_data)
+    update_dataset_example(new_data);
     if (push) {
-      console.log('about to call server update with', data)
-      server_update(data)
-    } else {
-      data['options_dict'][option]['reasoning'] = e.target.value;
-      update_dataset_example(data);
+      server_update(new_data)
     }
   }
+
+
 
 
   const update_prompt_area_options_dict = (option, new_val) => {
@@ -932,7 +933,6 @@ function App() {
     add_log: add_log,
     add_dataset_log: add_dataset_log,
     update_dataset_options: update_dataset_options,
-    update_first_dataset_options: update_first_dataset_options,
     remove_log: remove_log,
     white_space_style: white_space_style,
     prompt_area_options_dict: prompt_area_options_dict,
@@ -947,11 +947,8 @@ function App() {
     handle_archive: handle_archive,
     text: text,
     setText: setText,
-    handle_notes_change: handle_notes_change,
-    handle_option_author_change: handle_option_author_change,
-    handle_author_change: handle_author_change,
-    handle_reasoning_text_change: handle_reasoning_text_change,
-    handle_rating_change: handle_rating_change,
+    handle_change: handle_change,
+    handle_option_change: handle_option_change,
 
   }
 

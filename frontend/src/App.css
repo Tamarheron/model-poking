@@ -53,6 +53,18 @@ textarea {
   box-sizing: border-box;
 }
 
+textarea.interaction,
+textarea.option_text {
+  width: 100%;
+  height: fit-content;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  margin-bottom: 0px;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 input {
   width: 100%;
 
@@ -63,7 +75,8 @@ td {
   border: 1px solid black;
 }
 
-td.reasoning {
+td.reasoning,
+td.rating {
   width: 100%;
   height: fit-content;
   padding: 0px;
@@ -74,7 +87,7 @@ td.reasoning {
 }
 
 textarea.reasoning,
-select.reasoning {
+select.rating {
   width: 100%;
   height: fit-content;
   padding: 3px;
@@ -164,6 +177,9 @@ input[type="number"] {
   text-align: left;
 }
 
+td.interaction {
+  width: 60%
+}
 
 .logprob_td,
 .author_td,
@@ -200,10 +216,11 @@ input[type="number"] {
   border: 0px;
 }
 
-.option_text_td {
-  padding: 3px;
-  border: 3px;
-  margin: 3px;
+td.option_text {
+  padding: 0px;
+  border: 0px;
+  margin: 0px;
+  border-collapse: collapse;
 
 }
 
