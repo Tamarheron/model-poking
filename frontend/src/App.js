@@ -283,7 +283,7 @@ const DatasetLogs = ({ app_state, dataset_logs }) => {
     'handle_option_change': app_state.handle_option_change,
 
   }
-
+  console.log('dataset_logs: ', dataset_logs);
   var logs_to_display = dataset_logs.map((log) => {
     return log
   });
@@ -325,20 +325,20 @@ function parse_options(text) {
 }
 
 function sameData(data, new_data) {
-  for (var key in data) {
+  for (var key of Object.keys(data)) {
     if (data[key] != new_data[key]) {
-      console.log('data changed');
+      console.log('data changed at ', key);
       return false
     }
   }
 
-  // console.log('data', data.options_dict);
-  // console.log('newdata', new_data.options_dict);
+  console.log('data', data);
+  console.log('newdata', new_data);
 
   for (var key of Object.keys(data.options_dict)) {
     for (var field of Object.keys(data.options_dict[key])) {
       if (data.options_dict[key][field] != new_data.options_dict[key][field]) {
-        console.log('options changed');
+        console.log('options changed at ', key, field);
         return false
       }
     }
@@ -473,7 +473,7 @@ const SingleOption = (({
   }
 
   var reasoning_jsx = ""
-  var option_jsx = <td className="option_text">{option} </td>
+  var option_jsx = <td className="option_text">{String(option.text)} </td>
 
   if (!prompt_area) {
 
@@ -588,7 +588,7 @@ You have a smart AI assistant, which is another program running on the same comp
   }
   function add_new_option(option_text, author = 'None') {
     var new_options_dict = app_state.prompt_area_options_dict;
-    new_options_dict[option_text] = { correct: false, logprob: 'None', author: author };
+    new_options_dict[option_text] = { 'correct': false, 'logprob': 'None', 'author': author, 'text': option_text, 'id': option_text };
     app_state.setPromptAreaOptionsDict(new_options_dict);
   }
   function submit_option() {
@@ -624,10 +624,15 @@ You have a smart AI assistant, which is another program running on the same comp
     const prompt = setting + text + '\n> The best action is option';
     //interaction is everything up to last 'option'
     const interaction = get_interaction()
-    console.log(app_state.prompt_area_options_dict)
+    console.log('prompt area dic', app_state.prompt_area_options_dict)
+    var index = 0;
+    for (var key of Object.keys(app_state.prompt_area_options_dict)) {
+      app_state.prompt_area_options_dict[key]['position'] = index
+      index = index + 1
+    }
     const data = {
       "prompt": prompt, 'setting': setting, 'interaction': interaction,
-      'options_dict': app_state.prompt_area_options_dict, 'options': Object.keys(app_state.prompt_area_options_dict), 'engine': engine,
+      'options_dict': app_state.prompt_area_options_dict, 'engine': engine,
       "author": author
     }
     //get list of logprobs
@@ -674,14 +679,14 @@ You have a smart AI assistant, which is another program running on the same comp
       if (completion) {
         option_author = engine
       }
-      new_options.forEach(option => {
+      new_options.forEach(option_text => {
         // check if already exists
-        if (!(Object.keys(app_state.prompt_area_options_dict).includes(option))) {
-          new_options_dict[option] = { correct: false, logprob: NaN, author: option_author };
-          console.log('new option: ' + option + 'with author: ' + option_author);
+        if (!(Object.keys(app_state.prompt_area_options_dict).includes(option_text))) {
+          new_options_dict[option_text] = { 'correct': false, 'logprob': NaN, 'author': option_author, 'text': option_text, 'id': option_text };
+          console.log('new option: ' + option_text + 'with author: ' + option_author);
         } else {
-          console.log('option already exists: ' + option);
-          new_options_dict[option] = app_state.prompt_area_options_dict[option];
+          console.log('option already exists: ' + option_text);
+          new_options_dict[option_text] = app_state.prompt_area_options_dict[option_text];
         }
       }
       );
@@ -844,14 +849,11 @@ function App() {
     }
   }
   const update_dataset_example = (data) => {
-    const new_dataset_logs = dataset_logs.map(log => {
-      if (log.time_id === data.time_id) {
-        log = data;
-      }
-      return log;
+    setDatasetLogs(function (old) {
+      return [...old.filter(log => log.time_id !== data.time_id), data]
     })
-    setDatasetLogs(new_dataset_logs)
   }
+
   const get_first_time_id = () => {
     return first_id;
   }
@@ -872,6 +874,7 @@ function App() {
     e.target.style.height = `${height}px`;
   }
   const handle_option_change = (e, option_obj, data, field, push = true, resiz = false) => {
+    console.log('handle_option_change, option_obj: ', option_obj);
     if (resiz) {
       resize(e)
     }
@@ -881,7 +884,6 @@ function App() {
     new_option_dict[field] = e.target.value;
     console.log('new_option_dict: ', new_option_dict);
     var new_data = { ...data, 'options_dict': { ...data['options_dict'] } };
-    delete new_data['options_dict'][option_obj['id']]
     new_data['options_dict'][option_obj['id']] = new_option_dict;
     update_dataset_example(new_data);
     if (push) {
@@ -890,13 +892,16 @@ function App() {
   }
 
   const handle_change = (e, data, field, push = true, resiz = false) => {
+    console.log('handle_change, field: ', field);
+    console.log('handle_change, data: ', data);
     if (resiz) {
       resize(e)
     }
     console.log('field: ', field, 'new value: ', e.target.value);
-    const new_data = { ...data, [field]: e.target.value };
+    var new_data = { ...data };
+    new_data[field] = e.target.value;
     console.log(e.target.value)
-    console.log(new_data)
+    console.log('new data', new_data)
     update_dataset_example(new_data);
     if (push) {
       server_update(new_data)
