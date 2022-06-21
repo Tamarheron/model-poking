@@ -315,7 +315,7 @@ def get_dataset_logs():
     if app.debug:
         stmt = stmt[:5]
     else:
-        stmt = stmt[:50]
+        stmt = stmt
     print(stmt[0].options_dict)
     print(stmt[-1].options_dict)
 
@@ -337,7 +337,7 @@ def get_logs():
 def to_dict(example):
     d = dataclasses.asdict(example)
     d["options_dict"] = {
-        option.text: dataclasses.asdict(option) for option in example.options_dict
+        option.id: dataclasses.asdict(option) for option in example.options_dict
     }
     return d
 
