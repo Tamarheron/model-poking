@@ -134,28 +134,26 @@ def get_database_connection() -> Connection:
 
 
 def make_options_dict(item):
-    for i, option in enumerate(item["options"]):
-        logprob = item["answer_logprobs"].get(f" {i+1}", "None")
-        correct_options = item.get("correct_options", [])
-        item["options_dict"][option]["correct"] = i in correct_options
-        item["options_dict"][option]["logprob"] = (
-            -100.0 if logprob == "None" else float(logprob)
-        )
+    for _, v in item["options_dict"].items():
+        logprob = item["answer_logprobs"].get(f" {v['position']+1}", "None")
+        v["logprob"] = -100.0 if logprob == "None" else float(logprob)
+        v["id"] = v["text"] + str(item["time_id"])
+        v["example_id"] = item["time_id"]
 
 
-def update_options_dict(item):
-    current = item["options_dict"]
-    item["options_dict"] = []
-    for i, text in enumerate(current.keys()):
-        d = current.get(text)
-        d["position"] = i
-        d["example_id"] = item["time_id"]
-        d["text"] = text
-        d["logprob"] = -100.0 if d["logprob"] == "None" else float(d["logprob"])
-        d["id"] = text + str(item["time_id"])
-        # print(d["author"])
-        # d["author"] = d["author"]
-        item["options_dict"].append(Option(**d))
+# def update_options_dict(item):
+#     current = item["options_dict"]
+#     item["options_dict"] = []
+#     for i, text in enumerate(current.keys()):
+#         d = current.get(text)
+#         d["position"] = i
+#         d["example_id"] = item["time_id"]
+#         d["text"] = text
+#         d["logprob"] = -100.0 if d["logprob"] == "None" else float(d["logprob"])
+#         d["id"] = text + str(item["time_id"])
+#         # print(d["author"])
+#         # d["author"] = d["author"]
+#         item["options_dict"].append(Option(**d))
 
 
 def file_to_db(filename):
@@ -253,10 +251,11 @@ def get_answer():
     data["completion"] = str(response.choices[0].text)
     data["show"] = True
     data["main"] = True
+    data["notes"] = ""
     make_options_dict(data)
-    update_options_dict(data)
     print(data["options_dict"])
-    data.pop("options")
+    tmp_options_dict = data["options_dict"]
+    data["options_dict"] = [Option(**d) for d in tmp_options_dict.values()]
 
     print(db.session)
     db.session.add(DatasetExample(**data))
@@ -264,7 +263,7 @@ def get_answer():
 
     # convert options_dict (now list of type Option) back to dict
     data["options_dict"] = {
-        option.text: dataclasses.asdict(option) for option in data["options_dict"]
+        option.id: dataclasses.asdict(option) for option in data["options_dict"]
     }
 
     return json.dumps(data)
@@ -288,12 +287,13 @@ def update_dataset_log():
     stmt.star = data.get("star", False)
     stmt.main = data.get("main", True)
     stmt.author = data["author"]
+    stmt.interaction = data["interaction"]
 
     db.session.commit()
 
     # update options table also
-    for k in data["options_dict"].keys():
-        option = data["options_dict"][k]
+    for option in data["options_dict"].values():
+        print(option)
         stmt = db.session.query(Option).filter(Option.id == option["id"]).first()
 
         stmt.correct = option["correct"]
@@ -301,8 +301,8 @@ def update_dataset_log():
         stmt.author = option.get("author", "")
         stmt.reasoning = option.get("reasoning", "")
         stmt.rating = option.get("rating", "")
-        stmt.text = option.get("text", k)
-        print(stmt)
+        stmt.text = option["text"]
+        # print(stmt)
         db.session.commit()
 
     return "saved"
@@ -313,13 +313,14 @@ def get_dataset_logs():
     print("get_dataset_logs")
     stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
     if app.debug:
-        stmt = stmt[:5]
+        stmt = stmt[-3:]
     else:
         stmt = stmt
     print(stmt[0].options_dict)
     print(stmt[-1].options_dict)
 
     dict_list = [to_dict(x) for x in stmt]
+
     # print(dict_list[1])
     return json.dumps(dict_list)
 
@@ -336,9 +337,12 @@ def get_logs():
 
 def to_dict(example):
     d = dataclasses.asdict(example)
+    if d["notes"] == None:
+        d["notes"] = ""
     d["options_dict"] = {
         option.id: dataclasses.asdict(option) for option in example.options_dict
     }
+
     return d
 
 
