@@ -27,7 +27,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
     "postgres://", "postgresql://"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-openai.api_kay = os.getenv("ARC_OPENAI_API_KEY")
 
 db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
@@ -302,6 +301,7 @@ def update_dataset_log():
         stmt.author = option.get("author", "")
         stmt.reasoning = option.get("reasoning", "")
         stmt.rating = option.get("rating", "")
+        stmt.text = option.get("text", k)
         print(stmt)
         db.session.commit()
 
@@ -313,8 +313,10 @@ def get_dataset_logs():
     print("get_dataset_logs")
     stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
     if app.debug:
-        stmt = stmt[-5:]
+        stmt = stmt[:5]
     print(stmt[0].options_dict)
+    print(stmt[-1].options_dict)
+
     dict_list = [to_dict(x) for x in stmt]
     # print(dict_list[1])
     return json.dumps(dict_list)
