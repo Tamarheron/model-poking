@@ -313,9 +313,9 @@ def get_dataset_logs():
     print("get_dataset_logs")
     stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
     if app.debug:
-        stmt = stmt
+        stmt = stmt[:5]
     else:
-        stmt = stmt[:50]
+        stmt = stmt
     print(stmt[0].options_dict)
     print(stmt[-1].options_dict)
 
