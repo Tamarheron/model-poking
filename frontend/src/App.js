@@ -13,6 +13,7 @@ const engines = {
     'default': false, 'vshortname': 'dvftdis1'
   },
   'davinci:ft-personal-2022-06-15-00-09-30': { 'shortname': "davinci-ft-small-1", 'default': false, 'vshortname': 'dvftgen1' },
+  'davinci:ft-personal:gen-correct-options-2022-06-22-17-36-45': { 'shortname': "ft-options-gen", 'default': false, 'vshortname': 'dvopgen1' },
 }
 
 function api_call(text, temp = 0, n_tokens = 50, engine) {
@@ -913,12 +914,12 @@ function App() {
 
 
   const update_prompt_area_options_dict = (option, new_val) => {
-    // console.log('update_prompt_area_options_dict, option: ' + option + ', new_val: ' + new_val);
-    if (Object.keys(prompt_area_options_dict).includes(option)) {
-      // console.log('found option');
-      var new_dict = Object.assign({}, prompt_area_options_dict);
+    console.log('update_prompt_area_options_dict, option: ', option, ', new_val: ', new_val);
+    if (Object.keys(prompt_area_options_dict).includes(option.id)) {
+      console.log('found option');
+      var new_dict = { ...prompt_area_options_dict };
       // console.log('new_dict,before: ', new_dict[option]);
-      new_dict[option]['correct'] = new_val;
+      new_dict[option.id]['correct'] = new_val;
       // console.log('new_dict,after: ', new_dict[option]);
 
       setPromptAreaOptionsDict(new_dict);
