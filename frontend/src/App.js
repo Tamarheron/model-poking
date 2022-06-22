@@ -278,7 +278,7 @@ const DatasetLogs = ({ app_state, dataset_logs }) => {
   const state = {
     'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
     'update_dataset_options': app_state.update_dataset_options,
-    'get_first_time_id': app_state.get_first_time_id,
+    'get_first_example': app_state.get_first_example,
     'handle_change': app_state.handle_change,
     'handle_option_change': app_state.handle_option_change,
 
@@ -428,9 +428,9 @@ const SingleOption = (({
       console.log('updating prompt area', option, option_correct_at_start)
 
       state.update_prompt_area_options_dict(option, !option_correct_at_start)
-      const first_time_id = state.get_first_time_id()
-      console.log('updating first dataset entry', first_time_id, 'to ', !option_correct_at_start)
-      state.handle_option_change(ob, option, { 'time_id': first_time_id }, 'correct', true)
+      const first_example = state.get_first_example()
+      console.log('updating first dataset entry', first_example, 'to ', !option_correct_at_start)
+      state.handle_option_change(ob, option, first_example, 'correct', true)
     } else { //in dataset log
       console.log('sending to server with time_id ', data.time_id)
       console.log('sending to server with new_correct_options ', !option_correct_at_start)
@@ -814,7 +814,6 @@ function App() {
   const [newlines, setNewlines] = useState(false);
   const [prompt_area_options_dict, setPromptAreaOptionsDict] = useState({});
   const [text, setText] = useState('');
-  const [first_id, setFirstId] = useState('');
 
 
 
@@ -825,7 +824,6 @@ function App() {
     get_dataset_logs_from_server().then(loaded_logs => {
       setDatasetLogs(loaded_logs)
       console.log('loadedlogs[0].show:', loaded_logs[0].show);
-      setFirstId(loaded_logs[0].time_id);
     })
 
   }, []);
@@ -838,7 +836,6 @@ function App() {
   const add_dataset_log = (data) => {
     console.log('add_dataset_log, data: ' + data);
     setDatasetLogs([...dataset_logs, data])
-    setFirstId(data.time_id);
 
   }
   // const update_dataset_options = (option, new_val, time_id) => {
@@ -859,8 +856,8 @@ function App() {
     })
   }
 
-  const get_first_time_id = () => {
-    return first_id;
+  const get_first_example = () => {
+    return dataset_logs.sort((a, b) => a.time_id - b.time_id)[0];
   }
 
   const resize = (e) => {
@@ -992,7 +989,7 @@ function App() {
     update_prompt_area_options_dict: update_prompt_area_options_dict,
     // update_first_dataset_option: update_first_dataset_option,
     setPromptAreaOptionsDict: setPromptAreaOptionsDict,
-    get_first_time_id: get_first_time_id,
+    get_first_example: get_first_example,
     update_dataset_example: update_dataset_example,
     handle_save: handle_save,
     handle_unsave: handle_unsave,
