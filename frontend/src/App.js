@@ -405,9 +405,9 @@ const SingleOption = (({
   }
   const color_by_correct = (option_correct) => {
     if (option_correct) {
-      return '#46c746'
+      return 'lightgreen'
     } else {
-      return '#eb6134'
+      return 'lightpink'
     }
   }
   var logprob = option['logprob']
