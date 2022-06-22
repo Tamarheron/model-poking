@@ -104,8 +104,9 @@ async function get_logs_from_server() {
   const logs = await raw.json()
   return logs
 }
-async function get_dataset_logs_from_server() {
-  const raw = await fetch('/get_dataset_logs')
+async function get_dataset_logs_from_server(n) {
+  console.log('get_dataset_logs_from_server, n: ', n);
+  const raw = await fetch('/get_dataset_logs?n=' + n)
   const logs = await raw.json()
   console.log('logs[0].show: ' + logs[0].show);
   return logs
@@ -567,13 +568,18 @@ You have a smart AI assistant, which is another program running on the same comp
   const [show_setting, setShowSetting] = useState(false);
   const [engine, setEngine] = useState('text-davinci-002');
   const [author, setAuthor] = useState('anon');
+  const [n_examples, setNExamples] = useState(15);
 
 
   var text = text
 
 
-  // console.log('promptare options1: ' + options);
+  async function set_n_examples(n) {
+    setNExamples(n)
+    const dataset_logs = await get_dataset_logs_from_server(n)
+    app_state.set_dataset_logs(dataset_logs)
 
+  }
   function get_completion() {
     const textbox = document.getElementById("prompt_textarea");
     textbox.style.backgroundColor = "#f0f0f5";
@@ -749,6 +755,10 @@ You have a smart AI assistant, which is another program running on the same comp
           <label htmlFor="n_tokens">NTokens</label>
         </div>
         <div className='setting'>
+          <input id="nexamples" type="number" value={n_examples} onChange={(e) => set_n_examples(e.target.value)} />
+          <label htmlFor="nexamples">examples shown</label>
+        </div>
+        <div className='setting'>
           <input id="change_newlines" type="checkbox" value={app_state.newlines} onChange={(e) => app_state.set_newlines(!app_state.newlines)} />
           <label htmlFor="change_newlines">Show Newlines</label>
         </div>
@@ -828,7 +838,7 @@ function App() {
     get_logs_from_server().then(loaded_logs => {
       setLogs(loaded_logs)
     })
-    get_dataset_logs_from_server().then(loaded_logs => {
+    get_dataset_logs_from_server(15).then(loaded_logs => {
       setDatasetLogs(loaded_logs)
       console.log('loadedlogs[0].show:', loaded_logs[0].show);
     })
@@ -1005,6 +1015,7 @@ function App() {
     setText: setText,
     handle_change: handle_change,
     handle_option_change: handle_option_change,
+    set_dataset_logs: setDatasetLogs,
 
   }
 
