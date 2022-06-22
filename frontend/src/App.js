@@ -405,9 +405,9 @@ const SingleOption = (({
   }
   const color_by_correct = (option_correct) => {
     if (option_correct) {
-      return 'lightgreen'
+      return '#46c746'
     } else {
-      return 'lightpink'
+      return '#eb6134'
     }
   }
   var logprob = option['logprob']
@@ -483,7 +483,7 @@ const SingleOption = (({
 
   if (!prompt_area) {
 
-    reasoning_jsx = <tr>
+    reasoning_jsx = <><tr className='reasoning'>
       <td colSpan='2' className='reasoning'>
         <textarea id={option} rows={1} value={reasoning_text} className='reasoning'
           onChange={(e) => { state.handle_option_change(e, option, data, 'reasoning', false, true); }}
@@ -492,7 +492,11 @@ const SingleOption = (({
           onBlur={(e) => { state.handle_option_change(e, option, data, 'reasoning', true, true) }} />
       </td>
       <td colSpan='2' className='rating' >
-        <select className='rating' >
+        <select className='rating'
+          onChange={(e) => { state.handle_option_change(e, option, data, 'rating', false, false); }}
+          onClick={(e) => { state.handle_option_change(e, option, data, 'rating', true, false); }}
+          onBlur={(e) => { state.handle_option_change(e, option, data, 'rating', true, false) }}
+          value={rating_value}>
           <option value="clear">clear</option>
           <option value="ok">ok</option>
           <option value="unclear">unclear</option>
@@ -500,6 +504,8 @@ const SingleOption = (({
         </select>
       </td>
     </tr>
+      {/* <tr className='border'><td colSpan={4}></td></tr> */}
+    </>
 
     option_jsx = <td className='option_text'>
       <TextareaAutosize
