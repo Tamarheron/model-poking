@@ -311,16 +311,15 @@ def update_dataset_log():
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
     print("get_dataset_logs")
+    n = flask.request.args.get("n", 15)
     stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
-    if app.debug:
-        stmt = stmt[-3:]
-    else:
-        stmt = stmt
     print(stmt[0].options_dict)
     print(stmt[-1].options_dict)
     print(stmt[1].options_dict)
 
     dict_list = [to_dict(x) for x in stmt]
+    dict_list = sorted(dict_list, key=lambda x: x["time_id"])
+    dict_list = dict_list[-int(n) :]
 
     # print(dict_list[1])
     return json.dumps(dict_list)
