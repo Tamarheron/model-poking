@@ -318,6 +318,7 @@ def get_dataset_logs():
         stmt = stmt
     print(stmt[0].options_dict)
     print(stmt[-1].options_dict)
+    print(stmt[1].options_dict)
 
     dict_list = [to_dict(x) for x in stmt]
 

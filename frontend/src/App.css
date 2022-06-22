@@ -80,10 +80,18 @@ td.rating {
   width: 100%;
   height: fit-content;
   padding: 0px;
-  border: 0px;
-  border-radius: 3px;
-  margin-bottom: 3px;
+  border: 1px;
+  margin: 1px;
+  border-bottom: 3px solid rgb(137, 135, 147);
 
+  border-collapse: collapse;
+
+
+}
+
+
+tr.individual_option_row {
+  border-collapse: collapse;
 }
 
 textarea.reasoning,
@@ -102,8 +110,12 @@ select.rating {
 
 
 table {
-  border-collapse: separate;
+  border-collapse: collapse;
   width: 100%;
+}
+
+tr.reasoning {
+  border-collapse: separate;
 }
 
 .logs {
@@ -206,14 +218,6 @@ td.interaction {
 
 .logprob_td {
   width: 0.8cm;
-}
-
-.individual_option_row {
-  border-top: #ccc 2px solid;
-  text-align: left;
-  padding: 0px;
-  margin: 0px;
-  border: 0px;
 }
 
 td.option_text {
