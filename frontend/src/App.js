@@ -654,9 +654,9 @@ You have a smart AI assistant, which is another program running on the same comp
 
   function handle_continue() {
     //get first correct option, then remove options from text, then add option as a model action
-    const correct_option = Object.keys(app_state.prompt_area_options_dict).filter(option => app_state.prompt_area_options_dict[option].correct === true)[0];
+    const correct_option = Object.values(app_state.prompt_area_options_dict).filter(option => option.correct === true)[0];
     const interaction = get_interaction()
-    const continue_text = '\n> Action:' + correct_option;
+    const continue_text = '\n> Action:' + correct_option.text;
     app_state.setText(interaction + continue_text);
 
   }
