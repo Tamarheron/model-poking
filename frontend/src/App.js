@@ -37,7 +37,7 @@ function api_call(text, temp = 0, n_tokens = 50, engine) {
   return new_data;
   // fetch('/submit_prompt')
 }
-async function get_dataset_example(data) {
+function server_get_answers(data) {
   // send text, temperature to Flask backend
   const headers = { 'Content-Type': 'application/json' }
   const args = {
@@ -49,6 +49,24 @@ async function get_dataset_example(data) {
     function (response) {
       const dataset_example = response.json()
       console.log('get_dataset_example, dataset_example: ' + dataset_example);
+      return dataset_example
+    }
+  )
+  return response;
+  // return { '0': 0.5, '1': 0.5 };
+}
+async function save_example(data) {
+  // send text, temperature to Flask backend
+  const headers = { 'Content-Type': 'application/json' }
+  const args = {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(data)
+  }
+  const response = fetch('/save_example', args).then(
+    function (response) {
+      const dataset_example = response.json()
+      console.log('save_example, dataset_example: ' + dataset_example);
       return dataset_example
     }
   )
@@ -577,7 +595,7 @@ You have a smart AI assistant, which is another program running on the same comp
   async function set_n_examples(n) {
     setNExamples(n)
     const dataset_logs = await get_dataset_logs_from_server(n)
-    app_state.set_dataset_logs(dataset_logs)
+    app_state.setDatasetLogs(dataset_logs)
 
   }
   function get_completion() {
@@ -654,15 +672,51 @@ You have a smart AI assistant, which is another program running on the same comp
       "author": author
     }
     //get list of logprobs
-    const new_data = await get_dataset_example(data);
+    const new_data = await save_example(data);
 
-    // const logprobs = new_data["answer_logprobs"];
-    // console.log('get_answers returning logprobs: ' + logprobs);
-    // console.log(logprobs);
+    console.log('new data after save', new_data)
     app_state.add_dataset_log(new_data);
     app_state.setPromptAreaOptionsDict(new_data.options_dict);
+    const answers = { ...await server_get_answers(new_data) };
+    const answers_options_dict = { ...answers.options_dict }
 
-  };
+
+    app_state.setDatasetLogs((old) => {
+      const newlog = { ...old.filter(log => log.time_id === new_data.time_id)[0] };
+      newlog.options_dict = { ...newlog.options_dict }
+      newlog.completion = answers.completion;
+      newlog.answer_logprobs = answers.answer_logprobs;
+      console.log('old options_dict', newlog.options_dict)
+      console.log('new options_dict', answers.options_dict)
+      for (var key of Object.keys(newlog.options_dict)) {
+        newlog.options_dict[key] = { ...newlog.options_dict[key], logprob: answers.options_dict[key]['logprob'] };
+      }
+      return [...old.filter(log => log.time_id !== new_data.time_id), newlog]
+    });
+
+    app_state.setPromptAreaOptionsDict((old) => {
+      const new_prompt_area_dict = { ...old };
+      console.log('new_prompt_area_dict start', new_prompt_area_dict)
+      for (var key of Object.keys(new_prompt_area_dict)) {
+        console.log('key', key)
+        new_prompt_area_dict[key] = { ...new_prompt_area_dict[key] };
+        console.log('new_prompt_area_dict[key]', new_prompt_area_dict[key])
+        console.log('answers.options_dict', answers.options_dict)
+        console.log('answers.options_dict ', typeof (answers.options_dict))
+        console.log('answers.options_dict ', typeof (answers.options_dict))
+
+        console.log('keys', Object.keys(answers_options_dict))
+        if (Object.keys(answers_options_dict).includes(key)) {
+          console.log('key in answers.options_dict', key)
+          new_prompt_area_dict[key]['logprob'] = answers_options_dict[key]['logprob'];
+        }
+      }
+      console.log('new_prompt_area_dict', new_prompt_area_dict)
+      return new_prompt_area_dict;
+    }
+
+    );
+  }
 
   function handle_continue() {
     //get first correct option, then remove options from text, then add option as a model action
@@ -868,8 +922,9 @@ function App() {
   //   }
   // }
   const update_dataset_example = (data) => {
+    const new_data = { ...data, options_dict: { ...data.options_dict } };
     setDatasetLogs(function (old) {
-      return [...old.filter(log => log.time_id !== data.time_id), data]
+      return [...old.filter(log => log.time_id !== data.time_id), new_data]
     })
   }
 
@@ -1015,7 +1070,7 @@ function App() {
     setText: setText,
     handle_change: handle_change,
     handle_option_change: handle_option_change,
-    set_dataset_logs: setDatasetLogs,
+    setDatasetLogs: setDatasetLogs,
 
   }
 
