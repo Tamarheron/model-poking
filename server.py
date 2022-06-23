@@ -226,6 +226,33 @@ def submit_prompt():
     return flask.jsonify(data)
 
 
+@app.route("/get_action_options", methods=["POST"])
+def get_action_options():
+    print("get_action_options")
+    # get json from request
+    data = flask.request.get_json()
+    print(data)
+    prompt = data["text"] + "\n> Action:"
+    data["temp"] = float(data["temp"])
+    n = int(data["n"])
+    engine = data["engine"]
+    # send prompt to openai
+    response = openai.Completion.create(
+        engine=engine, prompt=prompt, temperature=data["temp"], n=n, stop="\n"
+    )
+    print("getting completion from openai, engine: " + engine)
+    completions = [choice.text for choice in response.choices]
+    # remove duplicates
+    completions = list(set(completions))
+
+    print("completion: ", completions)
+    text = data["text"] + "\nOptions:"
+    for i, completion in enumerate(completions):
+        text += f"\n{i+1}){completion}"
+    print(len(text))
+    return json.dumps({"text": text})
+
+
 @app.route("/")
 def model_poking():
     return send_file(__file__[:-9] + "frontend/build/index.html")
