@@ -761,6 +761,7 @@ You have a smart AI assistant, which is another program running on the same comp
     console.log('new text', new_text)
     app_state.setText(new_text)
     handle_text_change(textbox, true, new_text);
+    textbox.style.backgroundColor = "white";
     // fetch('/submit_prompt')
   }
   function handle_continue() {
