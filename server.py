@@ -135,10 +135,15 @@ def get_database_connection() -> Connection:
 
 def make_options_dict(item):
     for _, v in item["options_dict"].items():
-        logprob = item["answer_logprobs"].get(f" {v['position']+1}", "None")
-        v["logprob"] = -100.0 if logprob == "None" else float(logprob)
         v["id"] = v["text"] + str(item["time_id"])
         v["example_id"] = item["time_id"]
+        v["logprob"] = -100
+
+
+def add_logprobs(item):
+    for _, v in item["options_dict"].items():
+        logprob = item["answer_logprobs"].get(f" {v['position']+1}", "None")
+        v["logprob"] = -100.0 if logprob == "None" else float(logprob)
 
 
 # def update_options_dict(item):
@@ -247,8 +252,42 @@ def get_answer():
 
     answer_logprobs = logprobs[0]
     data["answer_logprobs"] = answer_logprobs
-    data["time_id"] = str(int(time.time()))
     data["completion"] = str(response.choices[0].text)
+    add_logprobs(data)
+    print(data["options_dict"])
+
+    stmt = (
+        db.session.query(DatasetExample)
+        .filter(DatasetExample.time_id == data["time_id"])
+        .first()
+    )
+    stmt.answer_logprobs = data["answer_logprobs"]
+    stmt.completion = data["completion"]
+
+    db.session.commit()
+
+    for option in data["options_dict"].values():
+        print(option)
+        stmt = db.session.query(Option).filter(Option.id == option["id"]).first()
+        stmt.logprob = option["logprob"]
+        # print(stmt)
+        db.session.commit()
+
+    return json.dumps(
+        {
+            "options_dict": data["options_dict"],
+            "answer_logprobs": data["answer_logprobs"],
+            "completion": data["completion"],
+        }
+    )
+
+
+@app.route("/save_example", methods=["POST"])
+def save_example():
+    print("save_example")
+    # get json from request
+    data = flask.request.get_json()
+    data["time_id"] = str(int(time.time()))
     data["show"] = True
     data["main"] = True
     data["notes"] = ""
@@ -320,6 +359,8 @@ def get_dataset_logs():
     dict_list = [to_dict(x) for x in stmt]
     dict_list = sorted(dict_list, key=lambda x: x["time_id"])
     dict_list = dict_list[-int(n) :]
+    if app.debug:
+        dict_list = dict_list[-3:]
 
     # print(dict_list[1])
     return json.dumps(dict_list)
