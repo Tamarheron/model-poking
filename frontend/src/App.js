@@ -335,7 +335,7 @@ const DatasetLogs = ({ app_state, dataset_logs }) => {
   const state = {
     'update_prompt_area_options_dict': app_state.update_prompt_area_options_dict,
     'update_dataset_options': app_state.update_dataset_options,
-    'get_first_example': app_state.get_first_example,
+    'update_first_example': app_state.update_first_example,
     'handle_change': app_state.handle_change,
     'handle_option_change': app_state.handle_option_change,
 
@@ -475,21 +475,19 @@ const SingleOption = (({
     console.log('thisOptionCorrect', thisOptionCorrect);
     const option_correct_at_start = thisOptionCorrect;
 
-
-    const ob = { 'target': { 'value': !option_correct_at_start } }
+    state.update_prompt_area_options_dict(option, !option_correct_at_start)
     if (prompt_area) {
       //if we're in the prompt area, we want to try updating both the prompt area and the first dataset entry
       console.log('updating prompt area', option, option_correct_at_start)
 
-      state.update_prompt_area_options_dict(option, !option_correct_at_start)
-      const first_example = state.get_first_example()
-      console.log('updating first dataset entry', first_example, 'to ', !option_correct_at_start)
-      state.handle_option_change(ob, option, first_example, 'correct', true)
+      state.update_first_example(!option_correct_at_start, option, 'correct')
     } else { //in dataset log
       console.log('sending to server with time_id ', data.time_id)
       console.log('sending to server with new_correct_options ', !option_correct_at_start)
 
       console.log('updating dataset options', option, !option_correct_at_start)
+
+      const ob = { 'target': { 'value': !option_correct_at_start } }
       state.handle_option_change(ob, option, data, 'correct', true)
 
     }
@@ -976,9 +974,18 @@ function App() {
     })
   }
 
-  const get_first_example = () => {
-    return dataset_logs.sort((a, b) => a.time_id - b.time_id)[0];
+  const update_first_example = (new_val, option, field) => {
+    setDatasetLogs(function (old) {
+      const first_example = { ...old.sort((a, b) => b.time_id - a.time_id)[0] }
+      console.log('update_first_example, first_example: ', first_example);
+      first_example.options_dict = { ...first_example.options_dict }
+      if (Object.keys(first_example.options_dict).includes(option.id)) {
+        first_example.options_dict[option.id] = { ...first_example.options_dict[option.id], [field]: new_val }
+      }
+      return [...old.filter(log => log.time_id !== first_example.time_id), first_example]
+    })
   }
+
 
 
   const handle_option_change = (e, option_obj, data, field, push = true, resiz = false) => {
@@ -1095,7 +1102,7 @@ function App() {
     update_prompt_area_options_dict: update_prompt_area_options_dict,
     // update_first_dataset_option: update_first_dataset_option,
     setPromptAreaOptionsDict: setPromptAreaOptionsDict,
-    get_first_example: get_first_example,
+    update_first_example: update_first_example,
     update_dataset_example: update_dataset_example,
     handle_save: handle_save,
     handle_unsave: handle_unsave,

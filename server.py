@@ -238,7 +238,12 @@ def get_action_options():
     engine = data["engine"]
     # send prompt to openai
     response = openai.Completion.create(
-        engine=engine, prompt=prompt, temperature=data["temp"], n=n, stop="\n"
+        engine=engine,
+        prompt=prompt,
+        temperature=data["temp"],
+        n=n,
+        stop="\n",
+        max_tokens=100,
     )
     print("getting completion from openai, engine: " + engine)
     completions = [choice.text for choice in response.choices]
