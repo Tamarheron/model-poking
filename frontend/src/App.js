@@ -37,6 +37,23 @@ function api_call(text, temp = 0, n_tokens = 50, engine) {
   return new_data;
   // fetch('/submit_prompt')
 }
+const resize = (e) => {
+  e.target.style.height = 'inherit';
+
+  // Get the computed styles for the element
+  const computed = window.getComputedStyle(e.target);
+
+  // Calculate the height
+  const height = parseInt(computed.getPropertyValue('border-top-width'), 10)
+    + parseInt(computed.getPropertyValue('padding-top'), 10)
+    + e.target.scrollHeight
+    + parseInt(computed.getPropertyValue('padding-bottom'), 10)
+    + parseInt(computed.getPropertyValue('border-bottom-width'), 10) - 5;
+
+  e.target.style.height = `${height}px`;
+}
+
+
 function server_get_answers(data) {
   // send text, temperature to Flask backend
   const headers = { 'Content-Type': 'application/json' }
@@ -55,6 +72,26 @@ function server_get_answers(data) {
   return response;
   // return { '0': 0.5, '1': 0.5 };
 }
+
+function server_get_options(data) {
+  // send text, temperature to Flask backend
+  const headers = { 'Content-Type': 'application/json' }
+  const args = {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(data)
+  }
+  const response = fetch('/get_action_options', args).then(
+    function (response) {
+      const dataset_example = response.json()
+      console.log('get_action_options, get_action_options: ' + dataset_example);
+      return dataset_example
+    }
+  )
+  return response;
+  // return { '0': 0.5, '1': 0.5 };
+}
+
 async function save_example(data) {
   // send text, temperature to Flask backend
   const headers = { 'Content-Type': 'application/json' }
@@ -352,9 +389,6 @@ function sameData(data, new_data) {
     }
   }
 
-  console.log('data', data);
-  console.log('newdata', new_data);
-
   for (var key of Object.keys(data.options_dict)) {
     for (var field of Object.keys(data.options_dict[key])) {
       if (data.options_dict[key][field] != new_data.options_dict[key][field]) {
@@ -589,8 +623,6 @@ You have a smart AI assistant, which is another program running on the same comp
   const [n_examples, setNExamples] = useState(15);
 
 
-  var text = text
-
 
   async function set_n_examples(n) {
     setNExamples(n)
@@ -718,6 +750,19 @@ You have a smart AI assistant, which is another program running on the same comp
     );
   }
 
+  async function get_action_options() {
+    const textbox = document.getElementById("prompt_textarea");
+    textbox.style.backgroundColor = "#f0f0f5";
+    console.log('get action options, engine: ' + engine);
+    // send text, temperature to Flask backend
+    const data = { "text": text, "temp": temp, 'engine': engine, 'n': 9 }
+    const response = { ...await server_get_options(data) };
+    const new_text = response.text;
+    console.log('new text', new_text)
+    app_state.setText(new_text)
+    handle_text_change(textbox, true, new_text);
+    // fetch('/submit_prompt')
+  }
   function handle_continue() {
     //get first correct option, then remove options from text, then add option as a model action
     const correct_option = Object.values(app_state.prompt_area_options_dict).filter(option => option.correct === true)[0];
@@ -848,6 +893,8 @@ You have a smart AI assistant, which is another program running on the same comp
           minRows={15} maxRows={50} id="prompt_textarea" style={{ whiteSpace: "pre-wrap" }}
           value={text} onChange={(e) => handle_text_change(e.target)} />
         <br></br>
+        <button id="get_action_options" onClick={() => get_action_options()}>get actions from model</button>
+
         <button id="submit_prompt" onClick={() => get_completion()}>get completion</button>
       </div>
       <div onKeyDown={handle_option_keypress}>
@@ -932,21 +979,7 @@ function App() {
     return dataset_logs.sort((a, b) => a.time_id - b.time_id)[0];
   }
 
-  const resize = (e) => {
-    e.target.style.height = 'inherit';
 
-    // Get the computed styles for the element
-    const computed = window.getComputedStyle(e.target);
-
-    // Calculate the height
-    const height = parseInt(computed.getPropertyValue('border-top-width'), 10)
-      + parseInt(computed.getPropertyValue('padding-top'), 10)
-      + e.target.scrollHeight
-      + parseInt(computed.getPropertyValue('padding-bottom'), 10)
-      + parseInt(computed.getPropertyValue('border-bottom-width'), 10) - 5;
-
-    e.target.style.height = `${height}px`;
-  }
   const handle_option_change = (e, option_obj, data, field, push = true, resiz = false) => {
     console.log('handle_option_change, option_obj: ', option_obj);
     if (resiz) {
