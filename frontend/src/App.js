@@ -12,7 +12,9 @@ const engines = {
     'shortname': 'single_yesno_ft',
     'default': false, 'vshortname': 'dvftdis1'
   },
-  'davinci:ft-personal-2022-06-15-00-09-30': { 'shortname': "davinci-ft-small-1", 'default': false, 'vshortname': 'dvftgen1' },
+  'davinci:ft-personal:continuation-jun-24th-2022-06-24-21-44-43': {
+    'shortname': "davinci-ft-small-2", 'default': false, 'vshortname': 'dvftgen2'
+  },
   'davinci:ft-personal:gen-correct-options-2022-06-22-17-36-45': { 'shortname': "ft-options-gen", 'default': false, 'vshortname': 'dvopgen1' },
 }
 
