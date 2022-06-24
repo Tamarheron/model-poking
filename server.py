@@ -11,6 +11,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Connection
 from dataclasses import dataclass
 import dataclasses
+from sqlalchemy import orm
 
 
 app = Flask(__name__, static_url_path="", static_folder="frontend/build")
@@ -382,8 +383,16 @@ def update_dataset_log():
 @app.route("/get_dataset_logs")
 def get_dataset_logs():
     print("get_dataset_logs")
+    start_time = time.time()
     n = flask.request.args.get("n", 15)
-    stmt = db.session.query(DatasetExample).filter(DatasetExample.show == True).all()
+    stmt = (
+        db.session.query(DatasetExample)
+        .options(orm.joinedload(DatasetExample.options_dict))
+        .filter(DatasetExample.show == True)
+        .all()
+    )
+    print("finished db query, took time: ", time.time() - start_time)
+    start_time = time.time()
     print(stmt[0].options_dict)
     print(stmt[-1].options_dict)
     print(stmt[1].options_dict)
@@ -391,8 +400,10 @@ def get_dataset_logs():
     dict_list = [to_dict(x) for x in stmt]
     dict_list = sorted(dict_list, key=lambda x: x["time_id"])
     dict_list = dict_list[-int(n) :]
-    if app.debug:
-        dict_list = dict_list[-3:]
+    # if app.debug:
+    #     dict_list = dict_list[-3:]
+
+    print("finished get_dataset_logs, took: ", time.time() - start_time)
 
     # print(dict_list[1])
     return json.dumps(dict_list)
@@ -401,9 +412,11 @@ def get_dataset_logs():
 @app.route("/get_logs")
 def get_logs():
     print("get_logs")
+    start_time = time.time()
     stmt = db.session.query(Completion).all()
     stmt = stmt[:10]
     dict_list = [dataclasses.asdict(x) for x in stmt]
+    print("finished getting logs, took: ", time.time() - start_time)
     # print(dict_list[1])
     return json.dumps(dict_list)
 

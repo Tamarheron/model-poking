@@ -163,8 +163,8 @@ async function get_dataset_logs_from_server(n) {
   console.log('get_dataset_logs_from_server, n: ', n);
   const raw = await fetch('/get_dataset_logs?n=' + n)
   const logs = await raw.json()
-  console.log('logs[0].show: ' + logs[0].show);
-  return logs
+  console.log('loaded dataset logs: ', logs);
+  return [...logs]
 }
 
 
@@ -327,7 +327,7 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
     example
   );
 }, areEqual);
-const DatasetLogs = ({ app_state, dataset_logs }) => {
+const DatasetLogs = ({ app_state, dataset_logs, browse }) => {
 
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
@@ -338,6 +338,7 @@ const DatasetLogs = ({ app_state, dataset_logs }) => {
     'update_first_example': app_state.update_first_example,
     'handle_change': app_state.handle_change,
     'handle_option_change': app_state.handle_option_change,
+    'browse': browse,
 
   }
   console.log('dataset_logs: ', dataset_logs);
@@ -568,6 +569,18 @@ const SingleOption = (({
         onChange={(e) => state.handle_option_change(e, option, data, 'text', false)}
       />
     </td>
+    if (state.browse) {
+      option_jsx = <td className='option_text'>
+        <textarea
+          className="option_text"
+          value={option['text']}
+          maxRows={10}
+          onBlur={(e) => state.handle_option_change(e, option, data, 'text', true, true)}
+          onClick={(e) => state.handle_option_change(e, option, data, 'text', false, true)}
+          onChange={(e) => state.handle_option_change(e, option, data, 'text', false, true)}
+        />
+      </td>
+    }
 
   }
 
@@ -928,9 +941,12 @@ You have a smart AI assistant, which is another program running on the same comp
 function App() {
   const [logs, setLogs] = useState([]);
   const [dataset_logs, setDatasetLogs] = useState([]);
+  const [all_dataset_logs, setAllDatasetLogs] = useState([]);
+
   const [newlines, setNewlines] = useState(false);
   const [prompt_area_options_dict, setPromptAreaOptionsDict] = useState({});
   const [text, setText] = useState('');
+  const [mode, setMode] = useState('normal');
 
 
 
@@ -1114,52 +1130,116 @@ function App() {
     setDatasetLogs: setDatasetLogs,
 
   }
+  async function handle_change_mode(old) {
+    if (old === 'normal') {
+      const all = [...await get_dataset_logs_from_server(0)];
+      console.log('all: ', all);
+      setDatasetLogs(all)
+      setAllDatasetLogs(all)
+    }
+  }
+  if (mode == 'normal') {
+
+    return (
+      <div className="App">
+        <button onClick={() => setMode((old) => {
+          handle_change_mode(old);
+          return old === 'normal' ? 'browse' : 'normal'
+        })}>
+          {mode === 'normal' ? 'Browse' : 'Normal'}
+        </button>
+        <PromptArea key="prompt_area"
+          app_state={app_state}
+          text={text} />
 
 
-  return (
-    <div className="App">
-      <PromptArea key="prompt_area"
-        app_state={app_state}
-        text={text} />
-
-
-      <table className="dataset_logs">
-        <thead>
-          <tr className="table-header">
-
-            <td>
-              Interaction
-            </td>
-            <td>
-              Options
-            </td>
-          </tr>
-        </thead>
-        <tbody >
-          <DatasetLogs key='datasetlogs' app_state={app_state} dataset_logs={dataset_logs} />
-        </tbody>
-      </table>
-      <div className="container">
-        <table className="logs">
+        <table className="dataset_logs">
           <thead>
             <tr className="table-header">
 
               <td>
-                Prompt
+                Interaction
               </td>
               <td>
-                Completion
+                Options
               </td>
             </tr>
           </thead>
           <tbody >
-            <Logs key='logs' logs={logs} remove_log_by_id={remove_log}
-              white_space_style={white_space_style} app_state={app_state} />
+            <DatasetLogs key='datasetlogs' app_state={app_state} dataset_logs={dataset_logs} />
+          </tbody>
+        </table>
+        <div className="container">
+          <table className="logs">
+            <thead>
+              <tr className="table-header">
+
+                <td>
+                  Prompt
+                </td>
+                <td>
+                  Completion
+                </td>
+              </tr>
+            </thead>
+            <tbody >
+              <Logs key='logs' logs={logs} remove_log_by_id={remove_log}
+                white_space_style={white_space_style} app_state={app_state} />
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  } else {
+    return (
+      <div className="App">
+        <button onClick={() => setMode((old) => {
+          handle_change_mode(old);
+          return old === 'normal' ? 'browse' : 'normal'
+        })}>
+          {mode === 'normal' ? 'Browse' : 'Normal'}
+        </button>
+        <SearchBox key="search_box" setDatasetLogs={(x) => setDatasetLogs(x)} all_dataset_logs={all_dataset_logs} />
+        <table className="dataset_logs">
+          <thead>
+            <tr className="table-header">
+
+              <td>
+                Interaction
+              </td>
+              <td>
+                Options
+              </td>
+            </tr>
+          </thead>
+          <tbody >
+            <DatasetLogs key='datasetlogs' app_state={app_state} dataset_logs={dataset_logs} browse={true} />
           </tbody>
         </table>
       </div>
-    </div>
-  );
+    );
+  }
 }
+
+const SearchBox = ({ setDatasetLogs, all_dataset_logs }) => {
+  const [search, setSearch] = useState('');
+  const do_search = () => {
+    if (search === '') {
+      setDatasetLogs([...all_dataset_logs]);
+    } else {
+      setDatasetLogs([...all_dataset_logs.filter(log => log.notes.toLowerCase().includes(search.toLowerCase()))])
+    }
+
+  }
+
+  return (
+    <div>
+      <input type="text" value={search} onChange={(e) => { setSearch(e.target.value) }} />
+      <button onClick={() => { do_search() }}>Filter</button>
+    </div>
+
+  )
+}
+
 export default App;
 
