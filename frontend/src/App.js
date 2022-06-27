@@ -246,28 +246,62 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
   if (data.author) {
     author = data.author
   }
+  var interaction = <TextareaAutosize
+    key={data.time_id + '  interaction'}
+    className="interaction"
+    id="notes"
+    maxRows={50}
+    value={data.interaction}
+    onChange={(e) => state.handle_change(e, data, 'interaction', false)}
+    onBlur={(e) => state.handle_change(e, data, 'interaction', true)}
+  />
+  if (state.browse) {
+    interaction = <textarea
+      key={data.time_id + '  interaction'}
+      className="interaction"
+      id="notes"
+      rows={30}
+      maxRows={50}
+      value={data.interaction}
+      onChange={(e) => state.handle_change(e, data, 'interaction', false)}
+      onBlur={(e) => state.handle_change(e, data, 'interaction', true)}
+    />
+  }
+  var notes_jsx = <TextareaAutosize
+    className="reasoning"
+    key={data.time_id + ' notes'}
+    value={notes}
+    onChange={(e) => state.handle_change(e, data, 'notes', false)}
+    onBlur={(e) => state.handle_change(e, data, 'notes', true)}
+    onClick={(e) => state.handle_change(e, data, 'notes', false)}
+    maxRows={10}
+    data={data} />
+  if (state.browse) {
+    notes_jsx = <textarea
+      className="reasoning"
+      key={data.time_id + ' notes'}
+      value={notes}
+      onChange={(e) => state.handle_change(e, data, 'notes', false)}
+      onBlur={(e) => state.handle_change(e, data, 'notes', true)}
+      onClick={(e) => state.handle_change(e, data, 'notes', false)}
+      maxRows={10}
+      data={data} />
+  }
+
   if (data['show'] === true) {
     example =
       <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: state.white_space_style }}>
         <td className="interaction">
           <div>
-            <TextareaAutosize
-              key={data.time_id + '  interaction'}
-              className="interaction"
-              id="notes"
-              maxRows={50}
-              value={data.interaction}
-              onChange={(e) => state.handle_change(e, data, 'interaction', false)}
-              onBlur={(e) => state.handle_change(e, data, 'interaction', true)}
-            />
-
+            {interaction}
             <button value={data.interaction} onClick={(e) => state.setText(e.target.value)}>use as prompt</button>
           </div>
         </td>
         <td className="dataset_log_options_td" >
           <table key={data.time_id + " options_log"} className="options_log">
             <tbody >
-              <OptionsAnswersList key={data.time_id + ' oal'} prompt_area={false} data={data} state={state} pos_index={pos_index} />
+              <OptionsAnswersList key={data.time_id + ' oal'} prompt_area={false} data={data}
+                state={state} pos_index={pos_index} />
               <tr>
 
                 <td className="dataset_log_buttons_td" colSpan={4}>
@@ -277,8 +311,6 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
                   <div className='engine_label'>
                     Id: {data.time_id}
                   </div>
-
-
 
                 </td>
               </tr>
@@ -305,15 +337,7 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
               </tr>
               <tr >
                 <td className="dataset_log_buttons_td" colSpan={4} >
-                  <TextareaAutosize
-                    className="reasoning"
-                    key={data.time_id + ' notes'}
-                    value={notes}
-                    onChange={(e) => state.handle_change(e, data, 'notes', false)}
-                    onBlur={(e) => state.handle_change(e, data, 'notes', true)}
-                    onClick={(e) => state.handle_change(e, data, 'notes', false)}
-                    maxRows={10}
-                    data={data} />
+                  {notes_jsx}
 
                 </td>
               </tr>
@@ -352,7 +376,7 @@ const DatasetLogs = ({ app_state, dataset_logs, browse }) => {
   })
   const jsx = logs_to_display.map((log, index) => {
     return (
-      <OptionsLog key={log.time_id + ' optionslog'} state={app_state} data={log} pos_index={index} />
+      <OptionsLog key={log.time_id + ' optionslog'} state={state} data={log} pos_index={index} />
     );
 
   });
