@@ -158,15 +158,15 @@ function handle_option_keypress(e) {
 
 async function get_logs_from_server() {
   const raw = await fetch('/get_logs')
-  const logs = await raw.json()
+  const logs = raw.json()
   return logs
 }
 async function get_dataset_logs_from_server(n) {
   console.log('get_dataset_logs_from_server, n: ', n);
   const raw = await fetch('/get_dataset_logs?n=' + n)
-  const logs = await raw.json()
+  const logs = raw.json()
   console.log('loaded dataset logs: ', logs);
-  return [...logs]
+  return logs
 }
 
 
@@ -365,6 +365,12 @@ const DatasetLogs = ({ app_state, dataset_logs, browse }) => {
     'handle_change': app_state.handle_change,
     'handle_option_change': app_state.handle_option_change,
     'browse': browse,
+    'setText': app_state.setText,
+    'handle_save': app_state.handle_save,
+    'handle_unsave': app_state.handle_unsave,
+    'handle_archive': app_state.handle_archive,
+    'handle_hide': app_state.handle_hide,
+
 
   }
   console.log('dataset_logs: ', dataset_logs);
@@ -1158,7 +1164,7 @@ function App() {
   }
   async function handle_change_mode(old) {
     if (old === 'normal') {
-      const all = [...await get_dataset_logs_from_server(0)];
+      const all = await get_dataset_logs_from_server(0);
       console.log('all: ', all);
       setDatasetLogs(all)
       setAllDatasetLogs(all)
