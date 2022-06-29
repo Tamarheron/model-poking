@@ -1060,7 +1060,7 @@ interface AppState {
   dataset_logs: DatasetExample[];
   all_dataset_logs: DatasetExample[];
   newlines: boolean;
-  prompt_area_options_dict: { [id: string]: PartialOption };
+  prompt_area_options_dict: { [id: string]: PartialOption | Option };
   text: string;
   mode: 'normal' | 'browse';
 }
