@@ -23,7 +23,7 @@ interface EngineInfo {
 
 //short name:long name
 const engines: { [engine in EngineName]: EngineInfo } = {
-  'davinci': { 'shortname': 'davinci', 'default': false, 'vshortname': 'dv' },
+  "davinci": { 'shortname': 'davinci', 'default': false, 'vshortname': 'dv' },
   'text-davinci-002': { 'shortname': 'text-davinci-002', 'default': true, 'vshortname': 'dv-2' },
   'davinci:ft-personal:single-option-discrimination-1-2022-06-16-01-53-08': {
     'shortname': 'single_yesno_ft',
@@ -35,14 +35,14 @@ const engines: { [engine in EngineName]: EngineInfo } = {
   'davinci:ft-personal:gen-correct-options-2022-06-22-17-36-45': { 'shortname': "ft-options-gen", 'default': false, 'vshortname': 'dvopgen1' },
 };
 
-interface SubmitPromptResponse {
-  temp: number;
-  n_tokens: number;
-  prompt: string;
-  completion: string;
-  logprobs: LogProbs;
-  time_id: number;
-}
+// interface SubmitPromptResponse {
+//   temp: number;
+//   n_tokens: number;
+//   prompt: string;
+//   completion: string;
+//   logprobs: LogProbs;
+//   time_id: number;
+// }
 
 interface Option {
   id: string;
@@ -55,7 +55,14 @@ interface Option {
   reasoning: string;
   rating: string;
 }
-
+interface PartialOption {
+  id: string;
+  text: string;
+  position: number;
+  author: string | null;
+  logprob: number | null;
+  correct: boolean;
+}
 interface DatasetExample {
   time_id: number;
   setting: string;
@@ -87,7 +94,7 @@ interface Completion {
 
 async function apiCall(
   text: string, temp: number = 0, n_tokens: number = 50, engine: EngineName
-): Promise<SubmitPromptResponse> {
+): Promise<Completion> {
   console.log('api_call, engine: ' + engine);
   // send text, temperature to Flask backend
   const data = { text, temp, n_tokens, engine };
@@ -227,7 +234,7 @@ function Logs(props: {
   app: App,
 }) {
   const { logs, white_space_style, app } = props;
-//const Logs = ({ logs, white_space_style: WhitespaceStyle, app_state }) => {
+  //const Logs = ({ logs, white_space_style: WhitespaceStyle, app_state }) => {
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
 
@@ -335,7 +342,7 @@ function OptionsLog(props: {
       onChange={(e) => app.handleChange(e, data, 'notes', false)}
       onBlur={(e) => app.handleChange(e, data, 'notes', true)}
       onClick={(e) => app.handleChange(e, data, 'notes', false)}
-      //maxRows={10}
+    //maxRows={10}
     />;
   }
 
@@ -420,8 +427,8 @@ function DatasetLogs(props: { app: App, dataset_logs: DatasetExample[], browse: 
   //   'browse': browse,
   // };
 
-  console.log('dataset_logs: ', dataset_logs);
-  const logs_to_display = [...dataset_logs];
+  console.log('dataset_logs: ', props.dataset_logs);
+  const logs_to_display = [...props.dataset_logs];
   logs_to_display.sort((a, b) => b.time_id - a.time_id);
   return <>
     {logs_to_display.map((log, index) =>
@@ -590,13 +597,13 @@ function SingleOption(props: {
 
     //TODO: this errors if we're in the prompt area
     const ob = { 'target': { 'value': new_author } }
-    app.handleOptionChange(ob, option, data, 'author', true)
+    app.handleOptionChange(null, new_author, option, data, 'author', true)
   }
-  const reasoning_text = ""
+  let reasoning_text = ""
   if (option['reasoning'] != undefined) {
     reasoning_text = option['reasoning']
   }
-  const rating_value = ""
+  let rating_value = ""
   if (option['rating'] != undefined) {
     rating_value = option['rating']
   }
@@ -607,13 +614,13 @@ function SingleOption(props: {
   if (!prompt_area) {
 
     reasoning_jsx = <><tr className='reasoning'>
-      <td colSpan='2' className='reasoning'>
+      <td colSpan={2} className='reasoning'>
         <textarea id={option} rows={1} value={reasoning_text} className='reasoning'
           onChange={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', false, true); }}
           onClick={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', false, true); }}
           onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', true, true) }} />
       </td>
-      <td colSpan='2' className='rating' >
+      <td colSpan={2} className='rating' >
         <select className='rating'
           onChange={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'rating', false, false); }}
           onClick={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'rating', true, false); }}
@@ -639,12 +646,12 @@ function SingleOption(props: {
         onChange={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false)}
       />
     </td>
-    if (state.browse) {
+    if (app.browse) {
       option_jsx = <td className='option_text'>
         <textarea
           className="option_text"
           value={option['text']}
-          maxRows={10}
+          // maxRows={10}
           onBlur={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', true, true)}
           onClick={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false, true)}
           onChange={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false, true)}
@@ -739,7 +746,7 @@ You have a smart AI assistant, which is another program running on the same comp
 
     textbox.style.backgroundColor = "white";
     // update logs
-    props.app.addLog(data); // FIXME: What's going on here?
+    props.app.addLog(data);
     return
   }
   function get_interaction() {
@@ -753,6 +760,8 @@ You have a smart AI assistant, which is another program running on the same comp
       author: author,
       text: option_text,
       id: option_text,
+      position: Object.keys(new_options_dict).length,
+
     };
     app.setState({ prompt_area_options_dict: new_options_dict });
   }
@@ -863,7 +872,7 @@ You have a smart AI assistant, which is another program running on the same comp
   }
   function handle_continue() {
     //get first correct option, then remove options from text, then add option as a model action
-    const correct_option = Object.values(app.prompt_area_options_dict).filter(option => option.correct === true)[0];
+    const correct_option = Object.values(app.state.prompt_area_options_dict).filter(option => option.correct === true)[0];
     const interaction = get_interaction()
     const continue_text = '\n> Action:' + correct_option.text;
     app.setText(interaction + continue_text);
@@ -879,8 +888,8 @@ You have a smart AI assistant, which is another program running on the same comp
     app.setText(new_text + new_options_text);
 
   }
-  function handle_text_change(textarea, completion = false, new_val = '') {
-    const new_text = textarea.value;
+  function handle_text_change(textarea:, completion = false, new_val = '') {
+    let new_text = textarea.value;
     if (completion) {
       new_text = new_val
     }
@@ -890,18 +899,18 @@ You have a smart AI assistant, which is another program running on the same comp
       const new_options = parse_options(new_text);
       console.log('handle text new_options: ' + new_options);
       const new_options_dict = {}
-      const option_author = author
+      let option_author = author
       if (completion) {
         option_author = engine
       }
       new_options.forEach(option_text => {
         // check if already exists
-        if (!(Object.keys(app.prompt_area_options_dict).includes(option_text))) {
+        if (!(Object.keys(app.state.prompt_area_options_dict).includes(option_text))) {
           new_options_dict[option_text] = { 'correct': false, 'logprob': NaN, 'author': option_author, 'text': option_text, 'id': option_text };
           console.log('new option: ' + option_text + 'with author: ' + option_author);
         } else {
           console.log('option already exists: ' + option_text);
-          new_options_dict[option_text] = app.prompt_area_options_dict[option_text];
+          new_options_dict[option_text] = app.state.prompt_area_options_dict[option_text];
         }
       }
       );
@@ -918,7 +927,7 @@ You have a smart AI assistant, which is another program running on the same comp
       return (
         <div >
           <TextareaAutosize key="setting_textarea"
-            id="setting_textarea" maxRows="25"
+            id="setting_textarea" maxRows={25}
             value={setting} onChange={(e) => setSetting(e.target.value)} />
           <br></br>
         </div>
@@ -956,7 +965,7 @@ You have a smart AI assistant, which is another program running on the same comp
           <label htmlFor="nexamples">examples shown</label>
         </div>
         <div className='setting'>
-          <input id="change_newlines" type="checkbox" value={app.newlines} onChange={(e) => app.set_newlines(!app.newlines)} />
+          <input id="change_newlines" type="checkbox" value={app.state.newlines} onChange={(e) => app.set_newlines(!app.state.newlines)} />
           <label htmlFor="change_newlines">Show Newlines</label>
         </div>
         <div className='setting'>
@@ -986,7 +995,7 @@ You have a smart AI assistant, which is another program running on the same comp
 
       </div>
       {SettingBox()}
-      <div onKeyDown={handle_prompt_keypress}>
+      <div onKeyDown={handlePromptKeypress}>
         <TextareaAutosize key="prompt_textarea" className='prompt_textarea'
           minRows={15} maxRows={50} id="prompt_textarea" style={{ whiteSpace: "pre-wrap" }}
           value={text} onChange={(e) => handle_text_change(e.target)} />
@@ -995,7 +1004,7 @@ You have a smart AI assistant, which is another program running on the same comp
 
         <button id="submit_prompt" onClick={() => get_completion()}>get completion</button>
       </div>
-      <div onKeyDown={handle_option_keypress}>
+      <div onKeyDown={handleOptionKeypress}>
         <TextareaAutosize key="option_textarea" id="option_textarea"
           value={option_text} onChange={(e) => setOptionText(e.target.value)} />
         <br></br>
@@ -1051,7 +1060,7 @@ interface AppState {
   dataset_logs: DatasetExample[];
   all_dataset_logs: DatasetExample[];
   newlines: boolean;
-  prompt_area_options_dict: { [id: string]: Option };
+  prompt_area_options_dict: { [id: string]: PartialOption };
   text: string;
   mode: 'normal' | 'browse';
 }
@@ -1136,8 +1145,8 @@ class App extends React.PureComponent<{}, AppState> {
   }
 
   handleOptionChange(
-    e: React.MouseEvent<any> | null,
-    value: string,
+    e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
+    value: string | boolean,
     option_obj: Option,
     data: DatasetExample,
     field: string,
@@ -1186,7 +1195,7 @@ class App extends React.PureComponent<{}, AppState> {
 
 
 
-  updatePromptAreaOptionsDict(option: Option, new_val: boolean) {
+  updatePromptAreaOptionsDict(option: PartialOption, new_val: boolean) {
     console.log('update_prompt_area_options_dict, option: ', option, ', new_val: ', new_val);
     if (this.state.prompt_area_options_dict.hasOwnProperty(option.id)) {
       console.log('found option');
@@ -1289,7 +1298,7 @@ class App extends React.PureComponent<{}, AppState> {
         <div className="App">
           {switch_page_button}
           <PromptArea key="prompt_area"
-            app={app}
+            app={this}
             text={this.state.text} />
 
 
