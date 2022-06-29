@@ -78,6 +78,14 @@ interface DatasetExample {
   completion: string;
   main: boolean;
 }
+interface PartialDatasetExample {
+  setting: string;
+  prompt: string;
+  interaction: string;
+  options_dict: { [option_id: string]: PartialOption };
+  engine: EngineName;
+  author: string;
+}
 
 interface Completion {
   time_id: number;
@@ -143,7 +151,7 @@ async function serverGetAnswers(data: DatasetExample): Promise<{
   return dataset_example;
 }
 
-async function serverGetOptions(data: DatasetExample): Promise<{ text: string }> {
+async function serverGetOptions(data: PartialDatasetExample): Promise<{ text: string }> {
   // send text, temperature to Flask backend
   const headers = { 'Content-Type': 'application/json' };
   const args = {
@@ -862,7 +870,7 @@ You have a smart AI assistant, which is another program running on the same comp
     console.log('get action options, engine: ' + engine);
     // send text, temperature to Flask backend
     const data = { "text": text, "temp": temp, 'engine': engine, 'n': 9 }
-    const response = { ...await server_get_options(data) };
+    const response = { ...await serverGetOptions(data) };
     const new_text = response.text;
     console.log('new text', new_text)
     app.setText(new_text)
@@ -1171,7 +1179,7 @@ class App extends React.PureComponent<{}, AppState> {
   }
 
   handleChange(
-    e: React.MouseEvent<any>,
+    e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
     data: DatasetExample,
     field: string,
     push: boolean = true,
