@@ -266,8 +266,9 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
       rows={30}
       maxRows={50}
       value={data.interaction}
-      onChange={(e) => state.handle_change(e, data, 'interaction', false)}
-      onBlur={(e) => state.handle_change(e, data, 'interaction', true)}
+      onChange={(e) => state.handle_change(e, data, 'interaction', false, true)}
+      onClick={(e) => state.handle_change(e, data, 'interaction', true, true)}
+      onBlur={(e) => state.handle_change(e, data, 'interaction', true, true)}
     />
   }
   var notes_jsx = <TextareaAutosize
@@ -284,9 +285,9 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
       className="reasoning"
       key={data.time_id + ' notes'}
       value={notes}
-      onChange={(e) => state.handle_change(e, data, 'notes', false)}
-      onBlur={(e) => state.handle_change(e, data, 'notes', true)}
-      onClick={(e) => state.handle_change(e, data, 'notes', false)}
+      onChange={(e) => state.handle_change(e, data, 'notes', false, true)}
+      onBlur={(e) => state.handle_change(e, data, 'notes', true, true)}
+      onClick={(e) => state.handle_change(e, data, 'notes', false, true)}
       maxRows={10}
       data={data} />
   }
