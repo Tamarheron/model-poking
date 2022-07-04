@@ -249,6 +249,7 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
   if (data.author) {
     author = data.author
   }
+  const date = new Date(data.time_id * 1000);
   var interaction = <TextareaAutosize
     key={data.time_id + '  interaction'}
     className="interaction"
@@ -313,7 +314,7 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
                     M: {engine_name}
                   </div>
                   <div className='engine_label'>
-                    Id: {data.time_id}
+                    Id: {date.toLocaleString()}
                   </div>
 
                 </td>
