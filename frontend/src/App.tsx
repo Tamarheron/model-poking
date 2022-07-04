@@ -283,156 +283,142 @@ function Logs(props: {
   return <>{jsx}</>;
 }
 
-//const OptionsLog = React.memo(
-function OptionsLog(props: {
-  data: DatasetExample, pos_index: number, app: App, browse: boolean, white_space_style: WhitespaceStyle
-}) {
+const OptionsLog = React.memo(
+  (props: {
+    data: DatasetExample, pos_index: number, app: App, browse: boolean, white_space_style: WhitespaceStyle
+  }) => {
 
-  const { data, pos_index, app, browse, white_space_style } = props;
+    const { data, pos_index, app, browse, white_space_style } = props;
 
-  //for the first example, if we've already submitted the prompt and got answers, the correct options should track
-  // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
-  //   data.correct_options = current_correct_options
-  // }
-  let engine_name: EngineName = 'text-davinci-002';
-  if (data.engine) {
-    engine_name = data.engine;
-    engine_name = engine_name.replace('-personal', "").replace('-2022-06', "") as EngineName;
-  }
-  let save_button = <LogButton id='star' fun={() => app.handleSave(data)} label="star" />
-  let color = 'white';
-  if (data.star) {
-    save_button = <button id='star' color="yellow" onClick={() => app.handleUnsave(data)} name="unstar" >unstar </button>
-    color = '#ffd60059'
-  }
+    //for the first example, if we've already submitted the prompt and got answers, the correct options should track
+    // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
+    //   data.correct_options = current_correct_options
+    // }
+    let engine_name: EngineName = 'text-davinci-002';
+    if (data.engine) {
+      engine_name = data.engine;
+      engine_name = engine_name.replace('-personal', "").replace('-2022-06', "") as EngineName;
+    }
+    let save_button = <LogButton id='star' fun={() => app.handleSave(data)} label="star" />
+    let color = 'white';
+    if (data.star) {
+      save_button = <button id='star' color="yellow" onClick={() => app.handleUnsave(data)} name="unstar" >unstar </button>
+      color = '#ffd60059'
+    }
 
-  let example: React.ReactNode = null;
-  const notes = data.notes || "";
-  const author = data.author || "";
-  let interaction = <TextareaAutosize
-    key={data.time_id + ' interaction'}
-    className="interaction"
-    id="notes"
-    maxRows={50}
-    value={data.interaction}
-    onChange={(e) => app.handleChange(e, data, 'interaction', false)}
-    onBlur={(e) => app.handleChange(e, data, 'interaction', true)}
-  />
-  if (browse) {
-    interaction = <textarea
+    let example: React.ReactNode = null;
+    const notes = data.notes || "";
+    const author = data.author || "";
+    let interaction = <TextareaAutosize
       key={data.time_id + ' interaction'}
       className="interaction"
       id="notes"
-      rows={30}
-      //maxRows={50}
+      maxRows={50}
       value={data.interaction}
       onChange={(e) => app.handleChange(e, data, 'interaction', false)}
       onBlur={(e) => app.handleChange(e, data, 'interaction', true)}
     />
-  }
-  let notes_jsx = <TextareaAutosize
-    className="reasoning"
-    key={data.time_id + ' notes'}
-    value={notes}
-    onChange={(e) => app.handleChange(e, data, 'notes', false)}
-    onBlur={(e) => app.handleChange(e, data, 'notes', true)}
-    onClick={(e) => app.handleChange(e, data, 'notes', false)}
-    maxRows={10}
-  />;
-  if (browse) {
-    notes_jsx = <textarea
-      className="reasoning"
-      key={data.time_id + ' notes'}
-      value={notes}
+    if (browse) {
+      interaction = <textarea
+        key={data.time_id + ' interaction'}
+        className="interaction"
+        id="notes"
+        rows={30}
+        //maxRows={50}
+        value={data.interaction}
+        onChange={(e) => app.handleChange(e, data, 'interaction', false)}
+        onBlur={(e) => app.handleChange(e, data, 'interaction', true)}
+      />
+    }
+
+    const notes_props = {
+      className: "reasoning",
+      key: data.time_id + ' notes',
+      value: notes,
+      maxRows: 10,
+    }
+    let notes_jsx = <TextareaAutosize
+      {...notes_props}
       onChange={(e) => app.handleChange(e, data, 'notes', false)}
       onBlur={(e) => app.handleChange(e, data, 'notes', true)}
       onClick={(e) => app.handleChange(e, data, 'notes', false)}
-    //maxRows={10}
     />;
-  }
+    if (browse) {
+      notes_jsx = <textarea
+        {...notes_props}
+        onChange={(e) => app.handleChange(e, data, 'notes', false)}
+        onBlur={(e) => app.handleChange(e, data, 'notes', true)}
+        onClick={(e) => app.handleChange(e, data, 'notes', false)}
+      />;
+    }
 
-  if (data['show'] === true) {
-    example =
-      <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: white_space_style }}>
-        <td className="interaction">
-          <div>
-            {interaction}
-            <button value={data.interaction} onClick={(e) => app.setText((e.target as HTMLButtonElement).value)}>use as prompt</button>
-          </div>
-        </td>
-        <td className="dataset_log_options_td" >
-          <table key={data.time_id + " options_log"} className="options_log">
-            <tbody >
-              <OptionsAnswersList key={data.time_id + ' oal'} prompt_area={false} data={data}
-                app={app} pos_index={pos_index} browse={browse} />
-              <tr>
+    if (data['show'] === true) {
+      example =
+        <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: white_space_style }}>
+          <td className="interaction">
+            <div>
+              {interaction}
+              <button value={data.interaction} onClick={(e) => app.setText((e.target as HTMLButtonElement).value)}>use as prompt</button>
+            </div>
+          </td>
+          <td className="dataset_log_options_td" >
+            <table key={data.time_id + " options_log"} className="options_log">
+              <tbody >
+                <OptionsAnswersList key={data.time_id + ' oal'} prompt_area={false} data={data}
+                  app={app} pos_index={pos_index} browse={browse} />
+                <tr>
 
-                <td className="dataset_log_buttons_td" colSpan={4}>
-                  <div className='engine_label'>
-                    M: {engine_name}
-                  </div>
-                  <div className='engine_label'>
-                    Id: {data.time_id}
-                  </div>
+                  <td className="dataset_log_buttons_td" colSpan={4}>
+                    <div className='engine_label'>
+                      M: {engine_name}
+                    </div>
+                    <div className='engine_label'>
+                      Id: {data.time_id}
+                    </div>
 
-                </td>
-              </tr>
-              <tr>
-                <td className="dataset_log_buttons_td" colSpan={4} style={{ backgroundColor: color }}>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="dataset_log_buttons_td" colSpan={4} style={{ backgroundColor: color }}>
 
-                  <div >
-                    <label htmlFor="author_edit">
-                      Author:
-                      <input type='text'
-                        key={data.time_id + ' author edit'}
-                        className="author_edit"
-                        id="author_edit"
-                        value={author}
-                        onChange={(e) => app.handleChange(e, data, 'author', false)}
-                        onBlur={(e) => app.handleChange(e, data, 'author', true)}
-                      />
-                    </label>
-                  </div>
-                  {save_button}
-                  <LogButton key={'archive' + data.time_id} fun={() => app.handleArchive(data)} label="archive" />
-                  <LogButton key={'hide' + data.time_id} fun={() => app.handleHide(data)} label="hide" />
-                </td>
-              </tr>
-              <tr >
-                <td className="dataset_log_buttons_td" colSpan={4} >
-                  {notes_jsx}
+                    <div >
+                      <label htmlFor="author_edit">
+                        Author:
+                        <input type='text'
+                          key={data.time_id + ' author edit'}
+                          className="author_edit"
+                          id="author_edit"
+                          value={author}
+                          onChange={(e) => app.handleChange(e, data, 'author', false)}
+                          onBlur={(e) => app.handleChange(e, data, 'author', true)}
+                        />
+                      </label>
+                    </div>
+                    {save_button}
+                    <LogButton key={'archive' + data.time_id} fun={() => app.handleArchive(data)} label="archive" />
+                    <LogButton key={'hide' + data.time_id} fun={() => app.handleHide(data)} label="hide" />
+                  </td>
+                </tr>
+                <tr >
+                  <td className="dataset_log_buttons_td" colSpan={4} >
+                    {notes_jsx}
 
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </td>
-      </tr >
-  } else {
-    console.log('data.show: ' + data.show);
-  }
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr >
+    } else {
+      console.log('data.show: ' + data.show);
+    }
 
-  return (
-    example
-  );
-}
-//, areEqual);
+    return (
+      example
+    );
+  }, areEqual);
 
 function DatasetLogs(props: { app: App, dataset_logs: DatasetExample[], browse: boolean, white_space_style: WhitespaceStyle }) {
-
-  // console.log(JSON.parse(logs[0]));
-  // console.log(logs[0]["prompt"]);
-
-  // const state = {
-  //   'update_prompt_area_options_dict': props.app.state.update_prompt_area_options_dict,
-  //   'update_dataset_options': props.app.state.update_dataset_options,
-  //   'update_first_example': props.app.state.update_first_example,
-  //   'handle_change': props.app.state.handle_change,
-  //   'handle_option_change': props.app.app.handleOptionChange,
-  //   'browse': browse,
-  // };
-
-  console.log('dataset_logs: ', props.dataset_logs);
   const logs_to_display = [...props.dataset_logs];
   logs_to_display.sort((a, b) => b.time_id - a.time_id);
   return <>
@@ -495,47 +481,34 @@ function sameData(data: DatasetExample, new_data: DatasetExample) {
   return true;
 }
 
-function sameState(state: AppState, new_state: AppState) {
-  if (state.newlines != new_state.newlines) {
-    console.log('newlines changed');
-    return false
-  }
-  return true
-}
 
-function areEqual(props: any, new_props: any) {
+type RowProps = { data: DatasetExample, pos_index: number, app: App, browse: boolean, white_space_style: WhitespaceStyle }
+// data: DatasetExample, pos_index: number, app: App, browse: boolean, white_space_style: WhitespaceStyle
+function areEqual(props: RowProps, nextProps: RowProps) {
   for (const key of Object.keys(props)) {
-    if (key != 'data' && key != 'state') {
-      if (props[key] != new_props[key]) {
+    if (key != 'data' && key != 'app') {
+      if (props[key as keyof RowProps] != nextProps[key as keyof RowProps]) {
         console.log('other state changed');
         return false
       }
     }
   }
-  if (!sameState(props.state, new_props.state)) {
-    console.log('state changed');
-    return false
 
-  }
-  // if (!sameState(props.app_state, new_props.app_state)) {
-  //   console.log('state changed');
-  //   return false
-  // }
-  return sameData(props.data, new_props.data)
+  return sameData(props.data, nextProps.data)
 }
 
 function SingleOption(props: {
   prompt_area: false,
   app: App,
-  option: Option,
   data: DatasetExample
+  option: Option
   local_index: number,
   browse: boolean,
 } | {
   prompt_area: true,
   app: App,
-  option: Option,
-  data: DatasetExample | { 'options_dict': { [key: string]: Option } },
+  data: PartialDatasetExample | { 'options_dict': { [key: string]: Option | PartialOption } },
+  option: Option | PartialOption,
   local_index: number,
   browse: boolean,
 }) {
@@ -586,41 +559,37 @@ function SingleOption(props: {
     console.log('thisOptionCorrect', thisOptionCorrect)
 
   }
-  const handle_author_toggle = (data: DatasetExample) => {
-    let new_author = ""
-    console.log(data)
-    if (author !== null && engines.hasOwnProperty(author)) {
-      //set author to the human author
-      new_author = data.author;
-    } else {
-      //set author to the engine
-      new_author = 'text-davinci-002';
-      if (data.engine !== undefined) {
-        new_author = data.engine;
-      }
-      console.log('new_author', new_author)
-      console.log((engines as any)[new_author])
-      author_name = (engines as any)[new_author].vshortname
-    }
 
-    //TODO: this errors if we're in the prompt area
-    const ob = { 'target': { 'value': new_author } }
-    app.handleOptionChange(null, new_author, option, data, 'author', true)
-  }
   let reasoning_text = ""
-  if (option['reasoning'] != undefined) {
-    reasoning_text = option['reasoning']
-  }
   let rating_value = ""
-  if (option['rating'] != undefined) {
-    rating_value = option['rating']
-  }
-
   let reasoning_jsx: React.ReactNode = null;
   let option_jsx = <td className="option_text">{String(option.text)} </td>;
   let author_row = <td className="author_td">{author_name}</td>
-
   if (!prompt_area) {
+    const handle_author_toggle = (data: DatasetExample) => {
+      let new_author = ""
+      console.log(data)
+      if (author !== null && engines.hasOwnProperty(author)) {
+        //set author to the human author
+        new_author = data.author;
+      } else {
+        //set author to the engine
+        new_author = 'text-davinci-002';
+        if (data.engine !== undefined) {
+          new_author = data.engine;
+        }
+        console.log('new_author', new_author)
+        console.log((engines as any)[new_author])
+        author_name = (engines as any)[new_author].vshortname
+      }
+
+      //TODO: this errors if we're in the prompt area
+      const ob = { 'target': { 'value': new_author } }
+      app.handleOptionChange(null, new_author, option, data, 'author', true)
+    }
+    reasoning_text = option['reasoning']
+    rating_value = option['rating']
+
     author_row = <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
     reasoning_jsx = <><tr className='reasoning'>
       <td colSpan={2} className='reasoning'>
@@ -683,10 +652,10 @@ function SingleOption(props: {
 
 function OptionsAnswersList(props: {
   prompt_area: true,
-  data: DatasetExample | { options_dict: { [option_id: string]: Option } },
-  pos_index: number,
+  data: DatasetExample | { options_dict: { [option_id: string]: Option | PartialOption } },
+  pos_index: null,
   app: App,
-  browse: boolean,
+  browse: false,
 } | {
   prompt_area: false,
   data: DatasetExample
@@ -700,12 +669,17 @@ function OptionsAnswersList(props: {
   const option_list = Object.values(props.data.options_dict);
   option_list.sort((a, b) => a.position - b.position);
   if (option_list.length > 0) {
-    jsx = option_list.map((option, _) =>
-      <SingleOption key={`${option.position} ${props.pos_index} ${props.prompt_area} ${option.id}`}
-        option={option}
-        data={props.data} app={props.app}
-        browse={props.browse} prompt_area={props.prompt_area} local_index={option.position} />
-    );
+    if (props.prompt_area) {
+      jsx = option_list.map((option, _) =>
+        <SingleOption key={`${option.position} ${props.pos_index} ${props.prompt_area} ${option.id}`}
+          local_index={option.position} option={option}{...props} />
+      );
+    } else {
+      jsx = option_list.map((option, _) =>
+        <SingleOption key={`${option.position} ${props.pos_index} ${props.prompt_area} ${option.id}`}
+          local_index={option.position} option={option as Option}{...props} />
+      );
+    }
   }
   return <>{jsx}</>;
 }
@@ -1040,7 +1014,7 @@ You have a smart AI assistant, which is another program running on the same comp
           <tbody>
             <OptionsAnswersList
               prompt_area={true}
-              data={{ 'options_dict': app.state.prompt_area_options_dict }} app={app} />
+              data={{ 'options_dict': app.state.prompt_area_options_dict }} app={app} pos_index={null} browse={false} />
           </tbody>
         </table>
       </div>
@@ -1144,7 +1118,7 @@ class App extends React.PureComponent<{}, AppState> {
     })
   }
 
-  updateFirstExample(new_val: any, option: Option, field: string) {
+  updateFirstExample(new_val: any, option: Option | PartialOption, field: string) {
     const first_example = { ...this.state.dataset_logs.sort((a, b) => b.time_id - a.time_id)[0] };
     console.log('update_first_example, first_example: ', first_example);
     first_example.options_dict = { ...first_example.options_dict };
@@ -1195,8 +1169,8 @@ class App extends React.PureComponent<{}, AppState> {
   ) {
     console.log('handle_change, field: ', field);
     console.log('handle_change, data: ', data);
-    if (resiz) {
-      e ? resize(e) : null;
+    if (resiz && e !== null) {
+      resize(e)
     }
     const new_data = { ...data };
     (new_data as any)[field] = e?.target.value; //FIXME: is this ok?
