@@ -503,7 +503,7 @@ function sameState(state: AppState, new_state: AppState) {
   return true
 }
 
-function areEqual(props, new_props) {
+function areEqual(props: any, new_props: any) {
   for (const key of Object.keys(props)) {
     if (key != 'data' && key != 'state') {
       if (props[key] != new_props[key]) {
@@ -525,10 +525,17 @@ function areEqual(props, new_props) {
 }
 
 function SingleOption(props: {
+  prompt_area: false,
+  app: App,
+  option: Option,
+  data: DatasetExample
+  local_index: number,
+  browse: boolean,
+} | {
+  prompt_area: true,
   app: App,
   option: Option,
   data: DatasetExample | { 'options_dict': { [key: string]: Option } },
-  prompt_area: boolean,
   local_index: number,
   browse: boolean,
 }) {
@@ -611,9 +618,10 @@ function SingleOption(props: {
 
   let reasoning_jsx: React.ReactNode = null;
   let option_jsx = <td className="option_text">{String(option.text)} </td>;
+  let author_row = <td className="author_td">{author_name}</td>
 
   if (!prompt_area) {
-
+    author_row = <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
     reasoning_jsx = <><tr className='reasoning'>
       <td colSpan={2} className='reasoning'>
         <textarea id={'option'} rows={1} value={reasoning_text} className='reasoning'
@@ -666,7 +674,7 @@ function SingleOption(props: {
     <><tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }}>
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
         onClick={(e) => handle_click()}>{local_index + 1}</td>{option_jsx}
-      <td className="author_td" onClick={() => prompt_area ? null : handle_author_toggle(data)}>{author_name}</td>
+      {author_row}
       <td className='logprob_td'>{(logprob === null) ? 'None' : Math.exp(logprob).toFixed(2)}</td>
     </tr>{reasoning_jsx}</>
   )
@@ -674,19 +682,27 @@ function SingleOption(props: {
 }
 
 function OptionsAnswersList(props: {
-  data: DatasetExample | { options_dict: { [key: string]: Option } },
+  prompt_area: true,
+  data: DatasetExample | { options_dict: { [option_id: string]: Option } },
   pos_index: number,
-  prompt_area: any, // FIXME
   app: App,
   browse: boolean,
-}) {
+} | {
+  prompt_area: false,
+  data: DatasetExample
+  pos_index: number,
+  app: App,
+  browse: boolean,
+}
+) {
   let jsx: React.ReactNode = null;
 
   const option_list = Object.values(props.data.options_dict);
   option_list.sort((a, b) => a.position - b.position);
   if (option_list.length > 0) {
     jsx = option_list.map((option, _) =>
-      <SingleOption key={`${option.position} ${props.pos_index} ${props.prompt_area} ${option.id}`} option={option}
+      <SingleOption key={`${option.position} ${props.pos_index} ${props.prompt_area} ${option.id}`}
+        option={option}
         data={props.data} app={props.app}
         browse={props.browse} prompt_area={props.prompt_area} local_index={option.position} />
     );
@@ -982,7 +998,7 @@ You have a smart AI assistant, which is another program running on the same comp
         </div>
       </div>
       <div className="settings_bar">
-        <div className='engine' onChange={(e) => setEngine(e.target.value)}>
+        <div className='engine'>
 
           {(Object.keys(engines)).map((eng) => {
             return (
@@ -1064,7 +1080,7 @@ interface AppState {
   dataset_logs: DatasetExample[];
   all_dataset_logs: DatasetExample[];
   newlines: boolean;
-  prompt_area_options_dict: { [id: string]: PartialOption | Option };
+  prompt_area_options_dict: { [option_id: string]: PartialOption | Option };
   text: string;
   mode: 'normal' | 'browse';
 }
@@ -1163,6 +1179,7 @@ class App extends React.PureComponent<{}, AppState> {
     console.log('new_option_dict: ', new_option_dict);
     const new_data = { ...data, 'options_dict': { ...data['options_dict'] } };
     new_data['options_dict'][option_obj['id']] = new_option_dict;
+
     this.updateDatasetExample(new_data);
     if (push) {
       serverUpdate(new_data)
