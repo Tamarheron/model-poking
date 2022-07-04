@@ -127,7 +127,7 @@ const resize = (e: React.ChangeEvent<any>) => {
 
 async function serverGetAnswers(data: DatasetExample): Promise<{
   answer_logprobs: LogProbs;
-  options_dict: Option[];
+  options_dict: { [id: string]: Option };
   completion: string;
 }> {
   // send text, temperature to Flask backend
@@ -357,7 +357,7 @@ function OptionsLog(props: {
         <td className="interaction">
           <div>
             {interaction}
-            <button value={data.interaction} onClick={(e) => app.setText(e.target.value)}>use as prompt</button>
+            <button value={data.interaction} onClick={(e) => app.setText((e.target as HTMLButtonElement).value)}>use as prompt</button>
           </div>
         </td>
         <td className="dataset_log_options_td" >
@@ -481,7 +481,7 @@ function sameData(data: DatasetExample, new_data: DatasetExample) {
 
   for (const key of Object.keys(data.options_dict)) {
     for (const field of Object.keys(data.options_dict[key])) {
-      if (data.options_dict[key][field] != new_data.options_dict[key][field]) {
+      if (data.options_dict[key][field as keyof Option] != new_data.options_dict[key][field as keyof Option]) {
         console.log('options changed at ', key, field);
         return false;
       }
@@ -618,13 +618,13 @@ function SingleOption(props: {
       <td colSpan={2} className='reasoning'>
         <textarea id={'option'} rows={1} value={reasoning_text} className='reasoning'
           onChange={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', false, true); }}
-          onClick={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', false, true); }}
+          onClick={(e) => { app.handleOptionChange(e, (e.target as HTMLTextAreaElement).value, option, data, 'reasoning', false, true); }}
           onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', true, true) }} />
       </td>
       <td colSpan={2} className='rating' >
         <select className='rating'
           onChange={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'rating', false, false); }}
-          onClick={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'rating', true, false); }}
+          onClick={(e) => { app.handleOptionChange(e, (e.target as HTMLSelectElement).value, option, data, 'rating', true, false); }}
           onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'rating', true, false) }}
           value={rating_value}>
           <option value="clear">clear</option>
@@ -643,7 +643,7 @@ function SingleOption(props: {
         value={option['text']}
         maxRows={10}
         onBlur={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', true)}
-        onClick={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false)}
+        onClick={(e) => app.handleOptionChange(e, (e.target as HTMLTextAreaElement).value, option, data, 'text', false)}
         onChange={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false)}
       />
     </td>
@@ -654,7 +654,7 @@ function SingleOption(props: {
           value={option['text']}
           // maxRows={10}
           onBlur={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', true, true)}
-          onClick={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false, true)}
+          onClick={(e) => app.handleOptionChange(e, (e.target as HTMLTextAreaElement).value, option, data, 'text', false, true)}
           onChange={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false, true)}
         />
       </td>
@@ -666,7 +666,7 @@ function SingleOption(props: {
     <><tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }}>
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
         onClick={(e) => handle_click()}>{local_index + 1}</td>{option_jsx}
-      <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
+      <td className="author_td" onClick={() => prompt_area ? null : handle_author_toggle(data)}>{author_name}</td>
       <td className='logprob_td'>{(logprob === null) ? 'None' : Math.exp(logprob).toFixed(2)}</td>
     </tr>{reasoning_jsx}</>
   )
@@ -737,7 +737,7 @@ You have a smart AI assistant, which is another program running on the same comp
 
   }
   async function get_completion() {
-    const textbox = document.getElementById("prompt_textarea")!;
+    const textbox = document.getElementById("prompt_textarea") as HTMLTextAreaElement;
     textbox.style.backgroundColor = "#f0f0f5";
     // send text to OpenAI API
 
@@ -860,7 +860,7 @@ You have a smart AI assistant, which is another program running on the same comp
   }
 
   async function get_action_options() {
-    const textbox = document.getElementById("prompt_textarea");
+    const textbox = document.getElementById("prompt_textarea") as HTMLTextAreaElement;
     if (textbox) {
       textbox.style.backgroundColor = "#f0f0f5";
       console.log('get action options, engine: ' + engine);
@@ -885,14 +885,14 @@ You have a smart AI assistant, which is another program running on the same comp
   function action_to_option() {
     //get first option, then remove options from text, then add option as a model action
     const after_last_action = text.split('> Action:').pop()
-    const last_action_line = after_last_action.split('\n')[0];
+    const last_action_line = after_last_action?.split('\n')[0];
 
     const new_options_text = option_start_text + last_action_line;
     const new_text = text.split('> Action:').slice(0, -1).join('> Action:');
     app.setText(new_text + new_options_text);
 
   }
-  function handle_text_change(textarea:, completion = false, new_val = '') {
+  function handle_text_change(textarea: HTMLTextAreaElement, completion = false, new_val = '') {
     let new_text = textarea.value;
     if (completion) {
       new_text = new_val
@@ -902,7 +902,7 @@ You have a smart AI assistant, which is another program running on the same comp
     if ((new_text !== '') && (new_text !== " ")) {
       const new_options = parse_options(new_text);
       console.log('handle text new_options: ' + new_options);
-      const new_options_dict = {}
+      let new_options_dict = {};
       let option_author = author
       if (completion) {
         option_author = engine
@@ -910,11 +910,11 @@ You have a smart AI assistant, which is another program running on the same comp
       new_options.forEach(option_text => {
         // check if already exists
         if (!(Object.keys(app.state.prompt_area_options_dict).includes(option_text))) {
-          new_options_dict[option_text] = { 'correct': false, 'logprob': NaN, 'author': option_author, 'text': option_text, 'id': option_text };
+          new_options_dict = { ...new_options_dict, option_text: { 'correct': false, 'logprob': NaN, 'author': option_author, 'text': option_text, 'id': option_text } };
           console.log('new option: ' + option_text + 'with author: ' + option_author);
         } else {
           console.log('option already exists: ' + option_text);
-          new_options_dict[option_text] = app.state.prompt_area_options_dict[option_text];
+          new_options_dict = { ...new_options_dict, option_text: app.state.prompt_area_options_dict[option_text] };
         }
       }
       );
@@ -957,15 +957,15 @@ You have a smart AI assistant, which is another program running on the same comp
       <div className="settings_bar">
         <div className='setting'>
           <input key="temp" type="number" value={temp}
-            onChange={(e) => setTemp(e.target.value)} />
+            onChange={(e) => setTemp(Number(e.target.value))} />
           <label htmlFor="temp">Temp</label>
         </div>
         <div className='setting'>
-          <input id="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(e.target.value)} />
+          <input id="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(Number(e.target.value))} />
           <label htmlFor="n_tokens">NTokens</label>
         </div>
         <div className='setting'>
-          <input id="nexamples" type="number" value={n_examples} onChange={(e) => set_n_examples(e.target.value)} />
+          <input id="nexamples" type="number" value={n_examples} onChange={(e) => set_n_examples(Number(e.target.value))} />
           <label htmlFor="nexamples">examples shown</label>
         </div>
         <div className='setting'>
@@ -986,9 +986,9 @@ You have a smart AI assistant, which is another program running on the same comp
 
           {(Object.keys(engines)).map((eng) => {
             return (
-              <label key={Math.random()} htmlFor={eng} >{engines[eng]['shortname']}
+              <label key={Math.random()} htmlFor={eng} >{engines[eng as EngineName]['shortname']}  {/* is there anything better you can do here?? */}
                 <input type="radio" value={eng} name="engine"
-                  checked={engine === eng} onChange={(e) => setEngine(e.target.value)} />
+                  checked={engine === eng} onChange={(e) => setEngine(e.target.value as EngineName)} />
 
               </label>
             )
