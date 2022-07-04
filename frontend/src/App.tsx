@@ -44,17 +44,7 @@ const engines: { [engine in EngineName]: EngineInfo } = {
 //   time_id: number;
 // }
 
-interface Option {
-  id: string;
-  text: string;
-  position: number;
-  author: string | null;
-  logprob: number | null;
-  correct: boolean;
-  example_id: number;
-  reasoning: string;
-  rating: string;
-}
+
 interface PartialOption {
   id: string;
   text: string;
@@ -63,20 +53,11 @@ interface PartialOption {
   logprob: number | null;
   correct: boolean;
 }
-interface DatasetExample {
-  time_id: number;
-  setting: string;
-  prompt: string;
-  interaction: string;
-  answer_logprobs: LogProbs;
-  options_dict: { [option_id: string]: Option };
-  engine: EngineName;
-  author: string;
-  show: boolean;
-  star: boolean;
-  notes: string;
-  completion: string;
-  main: boolean;
+
+type Option = PartialOption & {
+  example_id: number;
+  reasoning: string;
+  rating: string;
 }
 interface PartialDatasetExample {
   setting: string;
@@ -86,6 +67,17 @@ interface PartialDatasetExample {
   engine: EngineName;
   author: string;
 }
+type DatasetExample = PartialDatasetExample & {
+  time_id: number;
+  answer_logprobs: LogProbs;
+  options_dict: { [option_id: string]: Option };
+  show: boolean;
+  star: boolean;
+  notes: string;
+  completion: string;
+  main: boolean;
+}
+
 
 interface Completion {
   time_id: number;
@@ -151,7 +143,10 @@ async function serverGetAnswers(data: DatasetExample): Promise<{
   return dataset_example;
 }
 
-async function serverGetOptions(data: PartialDatasetExample): Promise<{ text: string }> {
+async function serverGetOptions(
+  // data = { "text": text, "temp": temp, 'engine': engine, 'n': 9 }
+  data: { text: string, temp: number, engine: EngineName, n: number }
+): Promise<{ text: string }> {
   // send text, temperature to Flask backend
   const headers = { 'Content-Type': 'application/json' };
   const args = {
@@ -290,9 +285,11 @@ function Logs(props: {
 
 //const OptionsLog = React.memo(
 function OptionsLog(props: {
-  data: DatasetExample, pos_index: number, app: App,
+  data: DatasetExample, pos_index: number, app: App, browse: boolean, white_space_style: WhitespaceStyle
 }) {
-  const { data, pos_index, app } = props;
+
+  const { data, pos_index, app, browse, white_space_style } = props;
+
   //for the first example, if we've already submitted the prompt and got answers, the correct options should track
   // if (pos_index === 0 && answers[0] !== 'None' && answers !== undefined && correct_options.length > 0) {
   //   data.correct_options = current_correct_options
@@ -321,7 +318,7 @@ function OptionsLog(props: {
     onChange={(e) => app.handleChange(e, data, 'interaction', false)}
     onBlur={(e) => app.handleChange(e, data, 'interaction', true)}
   />
-  if (app.state.mode === 'browse') {
+  if (browse) {
     interaction = <textarea
       key={data.time_id + ' interaction'}
       className="interaction"
@@ -342,7 +339,7 @@ function OptionsLog(props: {
     onClick={(e) => app.handleChange(e, data, 'notes', false)}
     maxRows={10}
   />;
-  if (app.state.mode === 'browse') {
+  if (browse) {
     notes_jsx = <textarea
       className="reasoning"
       key={data.time_id + ' notes'}
@@ -356,7 +353,7 @@ function OptionsLog(props: {
 
   if (data['show'] === true) {
     example =
-      <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: app.white_space_style }}>
+      <tr key={data.time_id + ' row'} className="dataset_log_row" style={{ whiteSpace: white_space_style }}>
         <td className="interaction">
           <div>
             {interaction}
@@ -367,7 +364,7 @@ function OptionsLog(props: {
           <table key={data.time_id + " options_log"} className="options_log">
             <tbody >
               <OptionsAnswersList key={data.time_id + ' oal'} prompt_area={false} data={data}
-                app={app} pos_index={pos_index} />
+                app={app} pos_index={pos_index} browse={browse} />
               <tr>
 
                 <td className="dataset_log_buttons_td" colSpan={4}>
@@ -421,7 +418,7 @@ function OptionsLog(props: {
 }
 //, areEqual);
 
-function DatasetLogs(props: { app: App, dataset_logs: DatasetExample[], browse: boolean }) {
+function DatasetLogs(props: { app: App, dataset_logs: DatasetExample[], browse: boolean, white_space_style: WhitespaceStyle }) {
 
   // console.log(JSON.parse(logs[0]));
   // console.log(logs[0]["prompt"]);
@@ -440,7 +437,8 @@ function DatasetLogs(props: { app: App, dataset_logs: DatasetExample[], browse: 
   logs_to_display.sort((a, b) => b.time_id - a.time_id);
   return <>
     {logs_to_display.map((log, index) =>
-      <OptionsLog key={log.time_id + ' optionslog'} app={props.app} data={log} pos_index={index} />
+      <OptionsLog key={log.time_id + ' optionslog'} app={props.app} data={log}
+        pos_index={index} browse={props.browse} white_space_style={props.white_space_style} />
     )}
   </>;
 }
@@ -450,9 +448,10 @@ function LogButton(props: {
   fun: () => void;
   label: string;
   color?: string;
+  id?: string;
 }) {
   return (
-    <button onClick={props.fun} color={props.color}>{props.label}</button>
+    <button id={props.id} onClick={props.fun} color={props.color}>{props.label}</button>
   )
 }
 
@@ -501,11 +500,6 @@ function sameState(state: AppState, new_state: AppState) {
     console.log('newlines changed');
     return false
   }
-  if (state.white_space_style != new_state.white_space_style) {
-    console.log('white_space_style changed');
-    return false
-  }
-
   return true
 }
 
@@ -533,11 +527,12 @@ function areEqual(props, new_props) {
 function SingleOption(props: {
   app: App,
   option: Option,
-  data: DatasetExample,
-  prompt_area: any, // FIXME: ???
+  data: DatasetExample | { 'options_dict': { [key: string]: Option } },
+  prompt_area: boolean,
   local_index: number,
+  browse: boolean,
 }) {
-  const { app, option, data, prompt_area, local_index } = props;
+  const { app, option, data, prompt_area, local_index, browse } = props;
   // const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
   let thisOptionCorrect = option.correct;
   const color_logprobs = (logprob: number | null) => {
@@ -573,9 +568,7 @@ function SingleOption(props: {
 
       app.updateFirstExample(!option_correct_at_start, option, 'correct')
     } else { //in dataset log
-      console.log('sending to server with time_id ', data.time_id)
       console.log('sending to server with new_correct_options ', !option_correct_at_start)
-
       console.log('updating dataset options', option, !option_correct_at_start)
 
       app.handleOptionChange(null, !option_correct_at_start, option, data, 'correct', true)
@@ -623,7 +616,7 @@ function SingleOption(props: {
 
     reasoning_jsx = <><tr className='reasoning'>
       <td colSpan={2} className='reasoning'>
-        <textarea id={option} rows={1} value={reasoning_text} className='reasoning'
+        <textarea id={'option'} rows={1} value={reasoning_text} className='reasoning'
           onChange={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', false, true); }}
           onClick={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', false, true); }}
           onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', true, true) }} />
@@ -654,7 +647,7 @@ function SingleOption(props: {
         onChange={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false)}
       />
     </td>
-    if (app.browse) {
+    if (browse) {
       option_jsx = <td className='option_text'>
         <textarea
           className="option_text"
@@ -674,17 +667,18 @@ function SingleOption(props: {
       <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
         onClick={(e) => handle_click()}>{local_index + 1}</td>{option_jsx}
       <td className="author_td" onClick={() => handle_author_toggle(data)}>{author_name}</td>
-      <td className='logprob_td'>{Math.exp(logprob).toFixed(2)}</td>
+      <td className='logprob_td'>{(logprob === null) ? 'None' : Math.exp(logprob).toFixed(2)}</td>
     </tr>{reasoning_jsx}</>
   )
 
-})
+}
 
 function OptionsAnswersList(props: {
-  data: DatasetExample,
+  data: DatasetExample | { options_dict: { [key: string]: Option } },
   pos_index: number,
   prompt_area: any, // FIXME
   app: App,
+  browse: boolean,
 }) {
   let jsx: React.ReactNode = null;
 
@@ -692,8 +686,9 @@ function OptionsAnswersList(props: {
   option_list.sort((a, b) => a.position - b.position);
   if (option_list.length > 0) {
     jsx = option_list.map((option, _) =>
-      <SingleOption key={`${option.position} ${props.pos_index} ${props.prompt_area} ${option.id}`} option={option} data={props.data} app={props.app}
-        pos_index={props.pos_index} prompt_area={props.prompt_area} local_index={option.position} />
+      <SingleOption key={`${option.position} ${props.pos_index} ${props.prompt_area} ${option.id}`} option={option}
+        data={props.data} app={props.app}
+        browse={props.browse} prompt_area={props.prompt_area} local_index={option.position} />
     );
   }
   return <>{jsx}</>;
@@ -780,15 +775,15 @@ You have a smart AI assistant, which is another program running on the same comp
       new_text = text.slice(0, -1);
     }
     const last_line = new_text.split('\n').pop();
-    const last_line_first = last_line[0]; // FIXME: What if new_text is empty?
     let start = option_start_text;
-    if (last_line_first) {
-      if (last_line_first.match(/^\d+$/)) {
+    if (last_line) {
+      if (last_line[0].match(/^\d+$/)) {
         // add option to last line
-        const current_num = parseInt(last_line_first);
+        const current_num = parseInt(last_line[0]);
         start = '\n' + String(current_num + 1) + ") ";
+
       }
-    }
+    } // FIXME: What if new_text is empty?
     app.setState({ text: new_text + start + option_text });
     if (option_text.slice(-1) === '\n') {
       option_text = option_text.slice(0, -1);
@@ -866,17 +861,18 @@ You have a smart AI assistant, which is another program running on the same comp
 
   async function get_action_options() {
     const textbox = document.getElementById("prompt_textarea");
-    textbox.style.backgroundColor = "#f0f0f5";
-    console.log('get action options, engine: ' + engine);
-    // send text, temperature to Flask backend
-    const data = { "text": text, "temp": temp, 'engine': engine, 'n': 9 }
-    const response = { ...await serverGetOptions(data) };
-    const new_text = response.text;
-    console.log('new text', new_text)
-    app.setText(new_text)
-    handle_text_change(textbox, true, new_text);
-    textbox.style.backgroundColor = "white";
-    // fetch('/submit_prompt')
+    if (textbox) {
+      textbox.style.backgroundColor = "#f0f0f5";
+      console.log('get action options, engine: ' + engine);
+      // send text, temperature to Flask backend
+      const data = { "text": text, "temp": temp, 'engine': engine, 'n': 9 }
+      const response = { ...await serverGetOptions(data) };
+      const new_text = response.text;
+      console.log('new text', new_text)
+      app.setText(new_text)
+      handle_text_change(textbox, true, new_text);
+      textbox.style.backgroundColor = "white";
+    }
   }
   function handle_continue() {
     //get first correct option, then remove options from text, then add option as a model action
@@ -973,11 +969,11 @@ You have a smart AI assistant, which is another program running on the same comp
           <label htmlFor="nexamples">examples shown</label>
         </div>
         <div className='setting'>
-          <input id="change_newlines" type="checkbox" value={app.state.newlines} onChange={(e) => app.set_newlines(!app.state.newlines)} />
+          <input id="change_newlines" type="checkbox" value={String(app.state.newlines)} onChange={(e) => app.setNewlines(!app.state.newlines)} />
           <label htmlFor="change_newlines">Show Newlines</label>
         </div>
         <div className='setting'>
-          <input id="change_show_setting" type="checkbox" value={show_setting} onChange={(e) => setShowSetting(!show_setting)} />
+          <input id="change_show_setting" type="checkbox" value={String(show_setting)} onChange={(e) => setShowSetting(!show_setting)} />
           <label htmlFor="change_show_setting">Show Setting</label>
         </div>
         <div className='setting' style={{ backgroundColor: author_color }} >
@@ -1095,25 +1091,20 @@ class App extends React.PureComponent<{}, AppState> {
     });
   }
 
-  //const set_newlines = (newlines) => {
-  //  setNewlines(newlines)
-  //}
-  //const add_log = (data) => {
-  //  setLogs([...logs, data])
-  //}
-  //const add_dataset_log = (data) => {
-  //  console.log('add_dataset_log, data: ' + data);
-  //  setDatasetLogs([...dataset_logs, data])
-  //}
-
   addLog(data: Completion) {
     this.setState({ logs: [...this.state.logs, data] });
   }
 
+  setNewlines(arg0: boolean): void {
+    this.setState({ newlines: arg0 });
+  }
   addDatasetLogs(data: DatasetExample) {
     this.setState({ dataset_logs: [...this.state.dataset_logs, data] });
   }
 
+  setText(txt: string) {
+    this.setState({ text: txt });
+  }
   updateDatasetOptions(option: Option, new_val: boolean, time_id: number) {
     const newdata = this.state.dataset_logs.filter(log => log.time_id === time_id)[0];
     console.log('update_dataset_options, newdata before: ', newdata);
@@ -1188,13 +1179,10 @@ class App extends React.PureComponent<{}, AppState> {
     console.log('handle_change, field: ', field);
     console.log('handle_change, data: ', data);
     if (resiz) {
-      resize(e)
+      e ? resize(e) : null;
     }
-    console.log('field: ', field, 'new value: ', e.target.value);
     const new_data = { ...data };
-    (new_data as any)[field] = e.target.value;
-    console.log(e.target.value)
-    console.log('new data', new_data)
+    (new_data as any)[field] = e?.target.value; //FIXME: is this ok?
     this.updateDatasetExample(new_data);
     if (push) {
       serverUpdate(new_data)
@@ -1265,32 +1253,6 @@ class App extends React.PureComponent<{}, AppState> {
     this.setState({ mode: this.state.mode === 'normal' ? 'browse' : 'normal' });
   }
 
-  /*
-  const white_space_style: WhitespaceStyle = newlines ? 'pre-line' : 'normal';
-
-  const app_state = {
-    set_newlines,
-    newlines,
-    add_log,
-    add_dataset_log,
-    remove_log,
-    white_space_style,
-    prompt_area_options_dict,
-    update_prompt_area_options_dict,
-    // update_first_dataset_option,
-    setPromptAreaOptionsDict,
-    update_first_example,
-    update_dataset_example,
-    handle_save,
-    handle_unsave,
-    handle_hide,
-    handle_archive,
-    setText,
-    handle_change,
-    handle_option_change,
-    setDatasetLogs,
-  };
-  */
 
   render() {
     const white_space_style: WhitespaceStyle = this.state.newlines ? 'pre-line' : 'normal';
@@ -1327,7 +1289,8 @@ class App extends React.PureComponent<{}, AppState> {
                 key='datasetlogs'
                 app={this}
                 dataset_logs={this.state.dataset_logs}
-                browse={this.state.mode === 'browse'}
+                browse={false}
+                white_space_style={white_space_style}
               />
             </tbody>
           </table>
@@ -1379,7 +1342,8 @@ class App extends React.PureComponent<{}, AppState> {
               </tr>
             </thead>
             <tbody >
-              <DatasetLogs key='datasetlogs' app={this} dataset_logs={this.state.dataset_logs} browse={true} />
+              <DatasetLogs key='datasetlogs' app={this} dataset_logs={this.state.dataset_logs}
+                browse={true} white_space_style={white_space_style} />
             </tbody>
           </table>
         </div>
