@@ -21,6 +21,7 @@ const engines = {
   'davinci:ft-personal:gen-correct-options-2022-06-22-17-36-45': { 'shortname': "ft-options-gen", 'default': false, 'vshortname': 'dvopgen1' },
 }
 
+
 function api_call(text, temp = 0, n_tokens = 50, engine) {
 
   console.log('api_call, engine: ' + engine);
@@ -231,7 +232,9 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
   var engine_name = 'davinci-text-002'
   if (data.engine) {
     engine_name = data.engine
-    engine_name = engine_name.replace('-personal', "").replace('-2022-06', "");
+    if (Object(engines).hasOwnProperty(engine_name)) {
+      engine_name = engines[data.engine].shortname
+    }
   }
   var save_button = <LogButton id='star' fun={() => state.handle_save(data)} label="star" />
   var color = 'white'
@@ -249,6 +252,7 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
   if (data.author) {
     author = data.author
   }
+  const date = new Date(data.time_id * 1000);
   var interaction = <TextareaAutosize
     key={data.time_id + '  interaction'}
     className="interaction"
@@ -313,7 +317,7 @@ const OptionsLog = React.memo(({ data, pos_index, state }) => {
                     M: {engine_name}
                   </div>
                   <div className='engine_label'>
-                    Id: {data.time_id}
+                    Id: {date.toLocaleString()}
                   </div>
 
                 </td>
