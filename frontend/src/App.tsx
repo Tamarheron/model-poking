@@ -486,7 +486,7 @@ type RowProps = { data: DatasetExample, pos_index: number, app: App, browse: boo
 // data: DatasetExample, pos_index: number, app: App, browse: boolean, white_space_style: WhitespaceStyle
 function areEqual(props: RowProps, nextProps: RowProps) {
   for (const key of Object.keys(props)) {
-    if (key != 'data' && key != 'app') {
+    if (key != 'data' && key != 'app' && key != 'browse') {
       if (props[key as keyof RowProps] != nextProps[key as keyof RowProps]) {
         console.log('other state changed');
         return false
