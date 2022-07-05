@@ -35,15 +35,28 @@ const engines: { [engine in EngineName]: EngineInfo } = {
   'davinci:ft-personal:gen-correct-options-2022-06-22-17-36-45': { 'shortname': "ft-options-gen", 'default': false, 'vshortname': 'dvopgen1' },
 };
 
-// interface SubmitPromptResponse {
-//   temp: number;
-//   n_tokens: number;
-//   prompt: string;
-//   completion: string;
-//   logprobs: LogProbs;
-//   time_id: number;
-// }
+interface Sequence {
+  setting: string;
+  steps: Step[];
+  id: string;
+  parent_ids: string[];
+  author: string;
+  notes: string;
+  show: boolean;
+  starred: boolean;
+  success: string;
+}
 
+interface Step {
+  id: string;
+  sequence_id: string;
+  position: number;
+  environment: string;
+  options_dict: { [option_id: string]: Option };
+  action: string;
+  notes: string;
+  children_ids: string[];
+}
 
 interface PartialOption {
   id: string;
