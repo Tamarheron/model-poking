@@ -45,6 +45,8 @@ interface Sequence {
   show: boolean;
   starred: boolean;
   success: string;
+  timestamp: string;
+
 }
 
 interface Step {
@@ -52,13 +54,12 @@ interface Step {
   sequence_id: string;
   position: number;
   environment: string;
-  options_dict: OptionsDict;
-  action: string;
+  options_list: Option[];
   notes: string;
   children_ids: string[];
   logprob_engine?: EngineName;
   author: string;
-  before: string;
+  timestamp: string;
 }
 
 type Option = {
@@ -68,15 +69,14 @@ type Option = {
   author: string | null;
   logprob: number | null;
   correct: boolean;
-  example_id: number;
+  step_id: string;
+  sequence_id: string;
   reasoning: string;
   rating: string;
   selected: boolean;
+  timestamp: string;
 }
 
-interface OptionsDict {
-  [option_pos: number]: Option
-};
 
 interface Completion {
   time_id: number;
@@ -92,7 +92,7 @@ interface Completion {
 
 
 async function apiCall(
-  text: string, temp: number = 0, n_tokens: number = 50, engine: EngineName
+  text: string, temp: number = 0, n_tokens: number = 50, engine: EngineName,
 ): Promise<Completion> {
   console.log('api_call, engine: ' + engine);
   // send text, temperature to Flask backend
@@ -123,14 +123,18 @@ const resize = (e: React.ChangeEvent<any>) => {
   e.target.style.height = `${height}px`;
 }
 
-async function serverCall(data: any, path: string) {
+async function serverCall(data: any, path: string, expect_json: boolean = false) {
   const headers = { 'Content-Type': 'application/json' };
   const args = {
     method: 'POST',
     headers: headers,
     body: JSON.stringify(data),
   };
-  return (await fetch(path, args)).json();
+  let res = await fetch(path, args)
+  if (expect_json) {
+    return await res.json();
+  }
+  return
 }
 
 async function serverGetLogprobs(props: { prompt: string, engine: EngineName }):
@@ -145,14 +149,30 @@ async function serverGetOptions(
   return serverCall(data, '/get_options');
 }
 
-function saveSeq(data: Sequence) {
-  // send text, temperature to Flask backend
-  serverCall(data, '/save_seq');
+async function saveNewSeq(data: Sequence) {
+  console.log('saving new sequence', data);
+  await serverCall(data, '/save_seq');
   return
 }
 
-function serverUpdate(props: { id: number, field: string, value: number | Step | string | boolean, which: 'seq' | 'step' | 'option' }) {
-  serverCall(props, '/update');
+function serverUpdate( //object: Option | Step | Sequence, which: 'seq' | 'step' | 'option', field: string) {
+  args: {
+    object: Option
+    which: 'option'
+    field: keyof Option
+  } | {
+    object: Step
+    which: 'step'
+    field: keyof Step
+  } | {
+    object: Sequence
+    which: 'seq'
+    field: keyof Sequence
+  }
+
+) {
+  console.log('serverUpdate', args);
+  serverCall(args, '/update');
   return
 }
 
@@ -167,30 +187,147 @@ function handlePromptKeypress(e: React.KeyboardEvent<any>) {
     option_area!.focus();
   }
 }
-function handleOptionKeypress(e: React.KeyboardEvent<any>) {
-  if (e.key === 'Enter' && !e.ctrlKey) {  // if enter is pressed and ctrl is held
-    // stop default behavior
-    e.preventDefault();
-    const button = document.getElementById("submit_option");
-
-    button!.click();
-
-  } else if (e.key === 'ArrowUp' && e.ctrlKey) {
-    //move focus to option area
-    const option_area = document.getElementById("prompt_textarea");
-    option_area!.focus();
-  }
-}
 
 async function getSequenceLogsFromServer(): Promise<Sequence[]> {
   const raw = await fetch('/get_sequence_logs')
-  const logs = await raw.json()
+  let logs = await raw.json();
+  logs = Object.values(logs) as Sequence[];
+  console.log('got sequence logs', logs);
   return logs;
 }
-
-const StepRow = (props: { step: Step }) => {
-  return <tr> <td>StepRow</td></tr>
+function getAction(step: Step) {
+  //action is selected option
+  const options = step.options_list;
+  const selected = options.filter(o => o.selected);
+  if (selected.length === 0) {
+    return '';
+  }
+  return selected[0].text;
+}
+const StepRow = (props: { step: Step, app: App }) => {
+  const { step, app } = props;
+  const textarea_props = {
+    app,
+    object: step as Step,
+    which: 'step' as 'step',
+  }
+  const env_props = {
+    other_props: {
+      maxRows: 10,
+      className: 'env',
+    },
+    field: 'environment' as 'environment',
+  }
+  let oal = <OptionsAnswersList {...props} />;
+  return (<>
+    <tr>
+      <td>
+        Env:
+      </td>
+      <td>
+        <EditableTextField {...env_props} {...textarea_props} />
+      </td>
+    </tr>
+    <tr>
+      <td>
+        Act:
+      </td>
+      <td>
+        {getAction(step)}
+      </td>
+    </tr>
+    <tr>
+      <td colSpan={2}>
+        <table>
+          <tbody>
+            {oal}
+            <tr>
+              <td colSpan={5}>
+                <button className='new_option' onClick={() => app.addNewOption(step)}>New Option</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  </>
+  )
 } //TODO
+
+const EditableTextField = (props: {
+  field: keyof Sequence,
+  object: Sequence
+  which: 'seq'
+  app: App,
+  other_props: any,
+} |
+{
+  field: keyof Step,
+  object: Step,
+  which: 'step'
+  app: App,
+  other_props: any,
+} |
+{
+  field: keyof Option,
+  object: Option,
+  which: 'option'
+  app: App,
+  other_props: any,
+}
+) => {
+  const { field, object, which, app } = props;
+  let value = (object as any)[field]
+  let handler: Function = (
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+    val: string,
+    obj: Step,
+    field: keyof Step,
+    push: boolean,
+    resiz: boolean,
+  ) => {
+    app.handleChange(event, val, obj, field, push, resiz);
+  }
+
+  if (which === 'option') {
+    handler = (
+      event: React.ChangeEvent<HTMLTextAreaElement>,
+      val: string,
+      obj: Option,
+      field: keyof Option,
+      push: boolean,
+      resiz: boolean,
+    ) => {
+      app.handleOptionChange(event, val, obj, field, push, resiz);
+    }
+  } else if (which === 'seq') {
+    handler = (
+      event: React.ChangeEvent<HTMLTextAreaElement>,
+      val: string,
+      obj: Sequence,
+      field: keyof Sequence,
+      push: boolean,
+      resiz: boolean,
+    ) => {
+      app.handleSeqChange(event, val, obj, field, push, resiz);
+    }
+  }
+  const props_ = {
+    ...props,
+    value,
+    onChange: handler,
+  }
+
+  return (
+    <>
+      <textarea value={value}
+        onChange={(e) => handler(e, e.target.value, object, field, false, true)}
+        onBlur={(e) => handler(e, e.target.value, object, field, true, true)}
+        onClick={(e) => handler(e, (e.target as HTMLTextAreaElement).value, object, field, true, true)}
+        {...props.other_props} />
+    </>
+  )
+}
 
 const Seq = (props: {
   seq: Sequence, app: App
@@ -205,43 +342,27 @@ const Seq = (props: {
     const notes = seq.notes || "";
     const author = seq.author || "";
 
-
-    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>, field: keyof Sequence) => {
-      // app.handleChange(e, seq, field, false)
-    };
-    const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>, field: keyof Sequence) => {
-      // app.handleChange(e, seq, field, true)
-    }
-    const handleClick = (e: React.MouseEvent<HTMLTextAreaElement>, field: keyof Sequence) => {
-      // app.handleChange(e, seq, field, false)
-    }
     const notes_props = {
       className: "reasoning",
       key: seq.id + ' notes',
-      value: notes,
       maxRows: 10,
-      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        handleChange(e, 'notes')
-      }
-      , onBlur: (e: React.FocusEvent<HTMLTextAreaElement>) => {
-        handleBlur(e, 'notes')
-      }
-      , onClick: (e: React.MouseEvent<HTMLTextAreaElement>) => {
-        handleClick(e, 'notes')
-      }
-    };
+    }
 
     // autosize is too slow for browse mode
-    let notes_jsx = browse ? <textarea {...notes_props} /> : <TextareaAutosize {...notes_props} />;
+    let notes_jsx = <EditableTextField field="notes" object={seq}
+      which="seq" app={app} other_props={notes_props} />;
 
     const rows_jsx = seq.steps.map((step, _) => {
-      return <StepRow step={step} />
+      return <StepRow key={`${seq.id} ${step.id}`} step={step} app={app} />
     })
 
     const bottom_jsx = <>
       <tr>
 
         <td className="dataset_log_buttons_td" colSpan={4}>
+          <div className="dataset_log_buttons">
+            <button className="dataset_log_button" onClick={() => app.addNewStep(seq)}>New step</button>
+          </div>
           <div className='engine_label'>
             Id: {new Date(parseInt(seq.id) * 1000).toLocaleString()}
           </div>
@@ -259,8 +380,8 @@ const Seq = (props: {
                 className="author_edit"
                 id="author_edit"
                 value={author}
-              // onChange={(e) => app.handleChange(e, seq, 'author', false)}
-              // onBlur={(e) => app.handleChange(e, seq, 'author', true)}
+                onChange={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', false)}
+                onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', true)}
               />
             </label>
           </div>
@@ -277,8 +398,8 @@ const Seq = (props: {
       </tr>
     </>
 
-    example = <div className="seq_log">
-      <table>
+    example = <div >
+      <table className="seq">
         <thead>
         </thead>
         <tbody>
@@ -343,14 +464,14 @@ const Seq = (props: {
 //     }
 //   }
 
-//   for (const key of Object.keys(data.options_dict)) {
-//     for (const field of Object.keys(data.options_dict[key])) {
-//       if (data.options_dict[key][field as keyof Option] != new_data.options_dict[key][field as keyof Option]) {
+//   for (const key of Object.keys(data.options_list)) {
+//     for (const field of Object.keys(data.options_list[key])) {
+//       if (data.options_list[key][field as keyof Option] != new_data.options_list[key][field as keyof Option]) {
 //         console.log('options changed at ', key, field);
 //         return false;
 //       }
 //     }
-//     if (data.options_dict[key]['correct'] != new_data.options_dict[key]['correct']) {
+//     if (data.options_list[key]['correct'] != new_data.options_list[key]['correct']) {
 //       console.log('options changed at ', key, 'correct');
 //       return false;
 //     }
@@ -377,13 +498,12 @@ const Seq = (props: {
 
 function SingleOption(props: {
   app: App,
-  data: Step
+  step: Step
   option: Option
-  browse: boolean,
+  // browse: boolean,
 }) {
-  const { app, option, data, browse } = props;
+  const { app, option, step } = props;
   // const [thisOptionCorrect, setThisOptionCorrect] = useState(correct_options.includes(index))
-  let thisOptionCorrect = option.correct;
   const color_logprobs = (logprob: number | null) => {
     if (logprob === null) {
       return 'white';
@@ -395,8 +515,11 @@ function SingleOption(props: {
       return `rgb(${color},${color},255)`;
     }
   };
-  const color_by_correct = (option_correct: boolean) => (
-    option_correct ? 'lightgreen' : 'lightpink'
+  const color_by_correct = () => (
+    option.correct ? 'lightgreen' : 'lightpink'
+  );
+  const color_by_selected = () => (
+    option.selected ? 'blue' : 'white'
   );
   const logprob = option.logprob;
   const author = option.author;
@@ -407,90 +530,97 @@ function SingleOption(props: {
   }
 
   const handle_click = () => {
-    console.log('thisOptionCorrect', thisOptionCorrect);
-    const option_correct_at_start = thisOptionCorrect;
-    // app.handleOptionChange(null, !option_correct_at_start, option, data, 'correct', true)
-    thisOptionCorrect = !option_correct_at_start
-    console.log('thisOptionCorrect', thisOptionCorrect)
+    console.log('thisOptionCorrect', option.correct);
+    const option_correct_at_start = option.correct;
+    app.handleOptionChange(null, !option_correct_at_start, option, 'correct', true)
+  }
+  const handle_select_click = () => {
+    console.log('thisOptionCorrect', option.selected);
+    const option_selected_at_start = option.selected;
+    app.handleOptionChange(null, !option_selected_at_start, option, 'selected', true)
   }
 
   let reasoning_text = ""
   let rating_value = ""
   let reasoning_jsx: React.ReactNode = null;
   let option_jsx = <td className="option_text">{String(option.text)} </td>;
-  let author_row = <td className="author_td">{author_name}</td>
+  let author_td = <td className="author_td">{author_name}</td>
 
   // const handle_author_toggle = () => {
   //   let new_author = ""
-  //   console.log(data)
+  //   console.log(step)
   //   if (author !== null && engines.hasOwnProperty(author)) {
   //     //set author to the human author
-  //     new_author = data.author;
+  //     new_author = step.author;
   //   } else {
-  //     new_author = data.logprob_engine;
+  //     new_author = step.logprob_engine;
   //   }
   //   author_name = (engines as any)[new_author].vshortname
-  //   app.handleOptionChange(null, new_author, option, data, 'author', true)
+  //   app.handleOptionChange(null, new_author, option, step, 'author', true)
   // }
 
-  //TODO: this errors if we're in the prompt area
 
-  reasoning_text = option['reasoning']
-  rating_value = option['rating']
+  const textarea_props = {
+    app,
+    object: option as Option,
+    which: 'option' as 'option',
+  }
 
-  // author_row = <td className="author_td" onClick={() => handle_author_toggle()}>{author_name}</td>
+  const reasoning_textarea_props = {
+    other_props: {
+      rows: 1,
+      className: 'reasoning',
+    },
+    field: 'reasoning' as keyof Option,
+  }
+  const option_textarea_props = {
+    other_props: {
+      rows: 1,
+      maxRows: 10,
+      className: 'option_text',
+    },
+    field: 'text' as keyof Option,
+  }
+  // author_td = <td className="author_td" onClick={() => handle_author_toggle()}>{author_name}</td>
   reasoning_jsx = <><tr className='reasoning'>
     <td colSpan={2} className='reasoning'>
-      {/* <textarea id={'option'} rows={1} value={reasoning_text} className='reasoning'
-        onChange={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', false, true); }}
-        onClick={(e) => { app.handleOptionChange(e, (e.target as HTMLTextAreaElement).value, option, data, 'reasoning', false, true); }}
-        onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'reasoning', true, true) }} /> */}
+      <EditableTextField {...textarea_props} {...reasoning_textarea_props} />
     </td>
-    <td colSpan={2} className='rating' >
+    <td colSpan={1} className='rating' >
       <select className='rating'
-        // onChange={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'rating', false, false); }}
-        // onClick={(e) => { app.handleOptionChange(e, (e.target as HTMLSelectElement).value, option, data, 'rating', true, false); }}
-        // onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, data, 'rating', true, false) }}
+        onChange={(e) => { app.handleOptionChange(e, e.target.value, option, 'rating', false, false); }}
+        onClick={(e) => { app.handleOptionChange(e, (e.target as HTMLSelectElement).value, option, 'rating', true, false); }}
+        onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, 'rating', true, false) }}
         value={rating_value}>
+        <option value="_">clear</option>
         <option value="clear">clear</option>
         <option value="ok">ok</option>
         <option value="unclear">unclear</option>
         <option value="wrong">wrong</option>
       </select>
     </td>
+    {author_td}
   </tr>
     {/* <tr className='border'><td colSpan={4}></td></tr> */}
   </>
 
   option_jsx = <td className='option_text'>
-    <TextareaAutosize
-      className="option_text"
-      value={option['text']}
-    // maxRows={10}
-    // onBlur={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', true)}
-    // onClick={(e) => app.handleOptionChange(e, (e.target as HTMLTextAreaElement).value, option, data, 'text', false)}
-    // onChange={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false)}
-    />
+    <EditableTextField {...textarea_props} {...option_textarea_props} />
   </td>
-  // if (browse) {
-  //   option_jsx = <td className='option_text'>
-  //     <textarea
-  //       className="option_text"
-  //       value={option['text']}
-  //       // maxRows={10}
-  //       onBlur={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', true, true)}
-  //       onClick={(e) => app.handleOptionChange(e, (e.target as HTMLTextAreaElement).value, option, data, 'text', false, true)}
-  //       onChange={(e) => app.handleOptionChange(e, e.target.value, option, data, 'text', false, true)}
-  //     />
-  //   </td>
-  // }
 
 
   return (
     <><tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }}>
-      <td className='index_td' style={{ backgroundColor: color_by_correct(thisOptionCorrect) }}
-        onClick={(e) => handle_click()}>{option.position + 1}</td>{option_jsx}
-      {author_row}
+      <td className='index_td' style={{ backgroundColor: color_by_correct() }}
+        onClick={(e) => handle_click()}>{option.position + 1}
+      </td>
+      {option_jsx}
+      <td >
+        <input type="radio" className='Option_select'
+          checked={option.selected}
+          style={{ backgroundColor: color_by_selected() }}
+          onChange={(e) => handle_select_click()} />
+      </td>
       <td className='logprob_td'>{(logprob === null) ? 'None' : Math.exp(logprob).toFixed(2)}</td>
     </tr>{reasoning_jsx}</>
   )
@@ -498,19 +628,19 @@ function SingleOption(props: {
 }
 
 function OptionsAnswersList(props: {
-  data: Step
-  pos_index: number,
+  step: Step
+  // pos_index: number,
   app: App,
-  browse: boolean,
+  // browse: boolean,
 }
 ) {
   let jsx: React.ReactNode = null;
 
-  const option_list = Object.values(props.data.options_dict);
+  const option_list = props.step.options_list;
   option_list.sort((a, b) => a.position - b.position);
   if (option_list.length > 0) {
     jsx = option_list.map((option, _) =>
-      <SingleOption key={`${option.position} ${props.pos_index} ${option.id}`}
+      <SingleOption key={`${option.position} ${props.step.sequence_id} ${props.step.id} ${option.id}`}
         option={option}{...props} />
     );
   }
@@ -552,69 +682,28 @@ function EditArea(props: { app: App, seq: Sequence }) {
 
   async function get_completion(step: Step,) {
     // send text to OpenAI API
-
-    const data = await apiCall(step.before + step.environment + step.action, temp, n_tokens, engine);
+    const data = await apiCall(app.getBefore(step) + step.environment + getAction(step), temp, n_tokens, engine);
     console.log(data.completion)
-    //TODO: update state
-
-    // update logs
-    return
+    return data.completion;
   }
-  // function add_new_option(option_text: string, author: string | null = null) {
-  //   const new_options_dict = props.app.state.prompt_area_options_dict;
-  //   new_options_dict[option_text] = {
-  //     correct: false,
-  //     logprob: null,
-  //     author: author,
-  //     text: option_text,
-  //     id: option_text,
-  //     position: Object.keys(new_options_dict).length,
 
-  //   };
-  //   app.setState({ prompt_area_options_dict: new_options_dict });
-
-  // function submit_option() {
-  //   // check if last line of text starts with a number
-  //   let new_text = text;
-  //   if (text.slice(-1) == '\n') {
-  //     new_text = text.slice(0, -1);
-  //   }
-  //   const last_line = new_text.split('\n').pop();
-  //   let start = option_start_text;
-  //   if (last_line) {
-  //     if (last_line[0].match(/^\d+$/)) {
-  //       // add option to last line
-  //       const current_num = parseInt(last_line[0]);
-  //       start = '\n' + String(current_num + 1) + ") ";
-
-  //     }
-  //   } // FIXME: What if new_text is empty?
-  //   app.setState({ text: new_text + start + option_text });
-  //   if (option_text.slice(-1) === '\n') {
-  //     option_text = option_text.slice(0, -1);
-  //   }
-  //   add_new_option(option_text, author);
-  //   setOptionText('');
-  // }
-  //console.log('promptare options2: ' + options);
-  // console.log(options)
-  function formatOptions(options_dict: OptionsDict) {
+  function formatOptions(options_list: Option[]) {
     let options = '\n';
-    for (var key of Object(options_dict).sort()) {
-      options += `${key + 1}) ${options_dict[key as number].text}\n`;
-    }
+    options_list.forEach((option, i) => {
+      options += `${i + 1}) ${option.text}\n`;
+    })
     return options;
   }
   function addNewOption(option_text: string, step: Step) {
     //TODO
   }
   async function get_answers(step: Step, seq: Sequence) {
-    const prompt = seq.setting + step.before + step.environment + formatOptions(step.options_dict) + '\n> The best action is option';
+    const prompt = app.getBefore(step) + step.environment + formatOptions(step.options_list) + '\n> The best action is option';
     const answers = { ...await serverGetLogprobs({ prompt, engine }) }.answer_logprobs;
-    let new_options_dict = { ...step.options_dict };
+    let new_options_list = { ...step.options_list };
     for (let key in answers) {
-      if (new_options_dict.hasOwnProperty(parseInt(key) - 1)) {
-        new_options_dict[parseInt(key) - 1].logprob = answers[key];
+      if (new_options_list.hasOwnProperty(parseInt(key) - 1)) {
+        new_options_list[parseInt(key) - 1].logprob = answers[key];
       }
 
       //TODO: update everything with the new logprobs
@@ -624,18 +713,11 @@ function EditArea(props: { app: App, seq: Sequence }) {
   async function get_action_options(step: Step, seq: Sequence) {
     console.log('get action options, engine: ' + engine);
     // send text, temperature to Flask backend
-    const data = { "prompt": seq.setting + step.before + step.environment + '\n> Action:', "temp": temp, 'engine': engine, 'n': 9 }
+    const data = { "prompt": app.getBefore(step) + step.environment + '\n> Action:', "temp": temp, 'engine': engine, 'n': 9 }
     const new_options: string[] = { ...await serverGetOptions(data) }.option_texts;
     for (let i = 0; i < new_options.length; i++) {
       addNewOption(new_options[i], step);
     }
-  }
-  function handle_continue(step: Step) {
-    //get first correct option, then remove options from text, then add option as a model action
-    const correct_option = Object.values(step.options_dict).filter(option => option.correct === true)[0];
-    correct_option.selected = true;
-    step.action = correct_option
-    //TODO: update state
   }
 
   const SettingBox = () => {
@@ -674,10 +756,6 @@ function EditArea(props: { app: App, seq: Sequence }) {
           <input id="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(Number(e.target.value))} />
           <label htmlFor="n_tokens">NTokens</label>
         </div>
-        {/* <div className='setting'>
-          <input id="change_newlines" type="checkbox" value={String(app.state.newlines)} onChange={(e) => app.setNewlines(!app.state.newlines)} />
-          <label htmlFor="change_newlines">Show Newlines</label>
-        </div> */}
         <div className='setting'>
           <input id="change_show_setting" type="checkbox" value={String(show_setting)} onChange={(e) => setShowSetting(!show_setting)} />
           <label htmlFor="change_show_setting">Show Setting</label>
@@ -726,45 +804,24 @@ function EditArea(props: { app: App, seq: Sequence }) {
 
 }
 
+function makeNewOption(step: Step) {
+  let position = Object.keys(step.options_list).length
+  return {
+    timestamp: new Date().getTime().toString(),
+    id: Math.random().toString(),
+    step_id: step.id,
+    text: '',
+    logprob: null,
+    selected: false,
+    correct: false,
+    author: step.author,
+    position,
+    reasoning: '',
+    rating: '',
+    sequence_id: step.sequence_id,
 
-
-
-
-
-// interface Step {
-//   id: string;
-//   sequence_id: string;
-//   position: number;
-//   environment: string;
-//   options_dict: OptionsDict;
-//   action: string;
-//   notes: string;
-//   children_ids: string[];
-//   logprob_engine: EngineName;
-//   author: string;
-//   before: string;
-// }
-
-function makeNewStep(sequence: Sequence, author: string) {
-  var before = sequence.setting;
-  for (let i = 0; i < sequence.steps.length; i++) {
-    before += sequence.steps[i].environment + sequence.steps[i].action;
   }
-  const new_step: Step = {
-    id: new Date().getTime().toString(),
-    sequence_id: sequence.id,
-    position: sequence.steps.length,
-    environment: "",
-    options_dict: {},
-    action: "",
-    notes: "",
-    children_ids: [],
-    author,
-    before
-  }
-  return new_step;
 }
-
 
 
 // =================================================== App ===================================================
@@ -773,68 +830,98 @@ function makeNewStep(sequence: Sequence, author: string) {
 
 
 interface AppState {
-  // logs: Completion[];
   // dataset_logs: DatasetExample[];
   // all_dataset_logs: DatasetExample[];
-  // newlines: boolean;
-  // prompt_area_options_dict: { [option_id: string]: PartialOption | Option };
-  // text: string;
   // mode: 'normal' | 'browse';
-  current_seq: Sequence;
+  current_seqs: { [id: string]: Sequence };
 }
 
 class App extends React.PureComponent<{}, AppState> {
   constructor(props: {}) {
     super(props)
 
+  }
 
-    var current_seq: Sequence = {
+  async componentDidMount() {
+    const seqs = await getSequenceLogsFromServer();
+    const current_seqs: { [id: string]: Sequence } = {};
+    for (let seq of seqs) {
+      current_seqs[seq.id] = seq;
+    }
+    console.log('current_seqs: ' + current_seqs);
+    this.setState({ current_seqs });
+  }
+
+  getBefore(step: Step, sequence: Sequence | null = null) {
+    if (sequence === null) {
+      //look up sequence
+      sequence = this.getSeq(step.sequence_id);
+    }
+    var before = sequence.setting;
+    for (let i = 0; i < sequence.steps.length; i++) {
+      before += sequence.steps[i].environment + getAction(sequence.steps[i]);
+    }
+    return before;
+  }
+  addNewStep(seq: Sequence) {
+    const new_steps = [...seq.steps];
+    new_steps.push(this.makeNewStep(seq, "anon"));
+    this.handleSeqChange(null, new_steps, seq, 'steps', true, false)
+  }
+  async saveThenAddNewStep(seq: Sequence) {
+    await saveNewSeq(seq);
+    this.addNewStep(seq);
+  }
+  makeNewSequence() {
+    const new_seq = {
       setting: setting_initial,
-      steps: [], id: "", parent_ids: [],
+      steps: [],
+      timestamp: new Date().getTime().toString(),
+      id: Math.random().toString(),
+      parent_ids: [],
       author: "anon", notes: "", show: true, starred: false, success: ""
     }
-    current_seq.steps.push(makeNewStep(current_seq, "anon"));
-    this.state = {
-      // logs: [],
-      // dataset_logs: [],
-      // all_dataset_logs: [],
-      // newlines: false,
-      // prompt_area_options_dict: {},
-      // text: "",
-      // mode: "normal"
-      current_seq
-    };
+    this.saveThenAddNewStep(new_seq);
+    return new_seq;
   }
 
-  componentDidMount() {
-    // getLogsFromServer().then((logs) => this.setState({ logs }));
-    // getDatasetLogsFromServer(15).then((dataset_logs) => {
-    //   this.setState({ dataset_logs });
-    //   console.log('loadedlogs[0].show:', dataset_logs[0].show);
-    // });
+
+  makeNewStep(sequence: Sequence, author: string) {
+    var before = this.getBefore(sequence.steps.slice(-1)[0], sequence);
+    const new_step: Step = {
+      timestamp: new Date().getTime().toString(),
+      id: Math.random().toString(),
+      sequence_id: sequence.id,
+      position: sequence.steps.length,
+      environment: "",
+      options_list: [],
+      notes: "",
+      children_ids: [],
+      author,
+    }
+    const option = makeNewOption(new_step);
+    new_step.options_list[option.position] = option;
+    return new_step;
   }
 
-  // addLog(data: Completion) {
-  //   this.setState({ logs: [...this.state.logs, data] });
-  // }
+  addNewOption(step: Step) {
+    const new_options = { ...step.options_list };
+    const position = Object.keys(new_options).length;
+    new_options[position] = makeNewOption(step);
+    this.handleChange(null, new_options, step, 'options_list', true, false);
+  }
 
-  // setNewlines(arg0: boolean): void {
-  //   this.setState({ newlines: arg0 });
-  // }
   // addDatasetLogs(data: DatasetExample) {
   //   this.setState({ dataset_logs: [...this.state.dataset_logs, data] });
   // }
 
-  // setText(txt: string) {
-  //   this.setState({ text: txt });
-  // }
   // updateDatasetOptions(option: Option, new_val: boolean, time_id: number) {
   //   const newdata = this.state.dataset_logs.filter(log => log.time_id === time_id)[0];
   //   console.log('update_dataset_options, newdata before: ', newdata);
-  //   console.log('keys: ', Object.keys(newdata.options_dict));
+  //   console.log('keys: ', Object.keys(newdata.options_list));
   //   console.log('option', option);
-  //   if (newdata.options_dict.hasOwnProperty(option.id)) {
-  //     newdata.options_dict[option.id].correct = new_val;
+  //   if (newdata.options_list.hasOwnProperty(option.id)) {
+  //     newdata.options_list[option.id].correct = new_val;
   //     console.log('update_dataset_options, newdata after: ', newdata);
   //     serverUpdate(newdata);
   //     this.updateDatasetExample(newdata);
@@ -842,7 +929,7 @@ class App extends React.PureComponent<{}, AppState> {
   // }
 
   // updateDatasetExample(data: DatasetExample) {
-  //   const new_data = { ...data, options_dict: { ...data.options_dict } };
+  //   const new_data = { ...data, options_list: { ...data.options_list } };
   //   this.setState({
   //     dataset_logs: [
   //       ...this.state.dataset_logs.filter((log: DatasetExample) => log.time_id !== data.time_id),
@@ -852,81 +939,93 @@ class App extends React.PureComponent<{}, AppState> {
   // // }
 
 
-  // handleOptionChange(
-  //   e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
-  //   value: string | boolean,
-  //   option_obj: Option,
-  //   data: Step,
-  //   field: string,
-  //   push: boolean = true,
-  //   resiz: boolean = false,
-  // ) {
-  //   console.log('handle_option_change, option_obj: ', option_obj);
-  //   if (resiz && e !== null) {
-  //     resize(e)
-  //   }
-  //   console.log('option_obj: ', option_obj);
-  //   console.log('field: ', field, 'new value: ', value);
-  //   const new_option_dict = { ...option_obj };
-  //   (new_option_dict as any)[field] = value;
-  //   console.log('new_option_dict: ', new_option_dict);
-  //   const new_data = { ...data, 'options_dict': { ...data['options_dict'] } };
-  //   new_data['options_dict'][option_obj['id']] = new_option_dict;
+  handleSeqChange(
+    e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
+    value: string | boolean | Step[] | string[],
+    sequence: Sequence,
+    field: keyof Sequence,
+    push: boolean = true,
+    resiz: boolean = false,
+  ) {
+    console.log('handle_ seq change, field: ', field);
+    console.log('handle_ seq change, sequence: ', sequence);
+    if (resiz && e !== null) {
+      resize(e)
+    }
+    const new_sequence = { ...sequence };
+    (new_sequence[field] as any) = value;
 
-  //   this.updateDatasetExample(new_data);
-  //   if (push) {
-  //     serverUpdate(new_data)
-  //   }
-  // }
+    this.setState({ current_seqs: { ...this.state.current_seqs, [sequence.id]: new_sequence } });
+    if (push) {
+      serverUpdate({ object: new_sequence, which: 'seq', field: field });
+    }
+  }
 
-  // handleChange(
-  //   e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
-  //   data: DatasetExample,
-  //   field: string,
-  //   push: boolean = true,
-  //   resiz: boolean = false,
-  // ) {
-  //   console.log('handle_change, field: ', field);
-  //   console.log('handle_change, data: ', data);
-  //   if (resiz && e !== null) {
-  //     resize(e)
-  //   }
-  //   const new_data = { ...data };
-  //   (new_data as any)[field] = e?.target.value; //FIXME: is this ok?
-  //   this.updateDatasetExample(new_data);
-  //   if (push) {
-  //     serverUpdate(new_data)
-  //   }
-  // }
+  getSeq(sequence_id: string) {
+    return this.state.current_seqs[sequence_id];
+  }
+
+  handleChange(
+    e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
+    value: string | boolean | Option[],
+    step: Step,
+    field: keyof Step,
+    push: boolean = true,
+    resiz: boolean = false,
+  ) {
+    console.log('handle_ change, field: ', field);
+    console.log('handle_ change, step: ', step);
+    const new_step = { ...step };
+    (new_step as any)[field] = value;
+    // lookup seq by id
+    const seq = this.getSeq(step.sequence_id);
+    const new_steplist = [...seq.steps];
+    new_steplist[step.position] = new_step;
+    this.handleSeqChange(e, new_steplist, seq, 'steps', false, resiz);
+    if (push) {
+      serverUpdate({ object: new_step, which: 'step', field: field });
+    }
+  }
+  handleOptionChange(
+    e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
+    value: string | boolean,
+    option_obj: Option,
+    field: keyof Option,
+    push: boolean = true,
+    resiz: boolean = false,
+  ) {
+    console.log('handle_option_change, option_obj: ', option_obj);
+    console.log('option_obj: ', option_obj);
+    console.log('field: ', field, 'new value: ', value);
+    //look up seq by id
+    const seq = this.getSeq(option_obj.sequence_id);
+    const step = seq.steps.filter(step => step.id === option_obj.step_id)[0];
+    const new_options_list = { ...step.options_list };
 
 
-  // handleSave(data: DatasetExample) {
-  //   const newdata = { ...data, star: true };
-  //   console.log('saving ID ' + newdata.time_id);
-  //   serverUpdate(newdata);
-  //   this.updateDatasetExample(newdata);
-  // }
+    //if field is selected, unselect all other options
+    if (field === 'selected') {
+      for (let i = 0; i < Object.keys(new_options_list).length; i++) {
+        if (new_options_list[i].selected) {
+          const new_option = { ...new_options_list[i] };
+          new_option.selected = false;
+          new_options_list[i] = new_option;
+        }
+      }
+    }
+    const new_option: Option = { ...option_obj, [field]: value };
 
-  // handleUnsave(data: DatasetExample) {
-  //   const newdata = { ...data, star: false };
-  //   console.log('unsaving ID ' + newdata.time_id);
-  //   serverUpdate(newdata);
-  //   this.updateDatasetExample(newdata);
-  // }
 
-  // handleHide(data: DatasetExample) {
-  //   console.log('hiding ID ' + data.time_id);
-  //   const newdata = { ...data, show: false };
-  //   serverUpdate(newdata);
-  //   this.updateDatasetExample(newdata);
-  // }
+    new_options_list[option_obj.position] = new_option;
+    console.log('new_options_list: ', new_options_list);
+    console.log(this)
 
-  // handleArchive(data: DatasetExample) {
-  //   console.log('archiving ID ' + data.time_id);
-  //   const newdata = { ...data, main: false, show: false };
-  //   serverUpdate(newdata);
-  //   this.updateDatasetExample(newdata);
-  // }
+    this.handleChange(e, new_options_list, step, 'options_list', false, resiz);
+    if (push) {
+      serverUpdate({ object: new_option, which: 'option', field: field });
+    }
+  }
+
 
   // removeLog = (id: number, dataset: string = 'log') => {
   //   if (dataset === 'log') {
@@ -949,18 +1048,28 @@ class App extends React.PureComponent<{}, AppState> {
 
 
   render() {
-    // const white_space_style: WhitespaceStyle = this.state.newlines ? 'pre-line' : 'normal';
 
     // const switch_page_button = (
     //   <button onClick={() => this.handleChangeMode()}>
     //     {this.state.mode === 'normal' ? 'Browse' : 'Normal'}
     //   </button>
     // );
+    let jsx = <div>Loading...</div>
+    if (this.state !== null) {
+      jsx = <div>
+        <button onClick={() => this.makeNewSequence()}>New Sequence</button>
+      </div>
 
-    return (
-      <EditArea app={this} seq={this.state.current_seq} />
-
-    );
+      if (Object.values(this.state.current_seqs).length > 0) {
+        let seq = Object.values(this.state.current_seqs)[0]
+        if (seq !== null) {
+          jsx = <>
+            {jsx} <EditArea app={this} seq={seq} />
+          </>
+        }
+      }
+    }
+    return jsx;
   }
 }
 
