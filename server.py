@@ -177,11 +177,12 @@ def get_action_options():
         max_tokens=100,
     )
     print("getting completion from openai, engine: " + engine)
+
     completions = [choice.text for choice in response.choices]
     # remove duplicates
     completions = list(set(completions))
     print("completion: ", completions)
-    return json.dumps({"new_options": completions})
+    return json.dumps({"option_texts": completions})
 
 
 @app.route("/")
@@ -265,6 +266,12 @@ def update_step(object, field):
                 db.session.add(option_obj)
             new_options.append(option_obj)
         value = new_options
+        #delete old options
+        for option in step.options_list:
+            if option not in new_options:
+                print("deleting option", option)
+                db.session.delete(option)
+
     print("updating step", object, field,)
     print(type(value))
     print(step)
@@ -275,8 +282,15 @@ def update_option(object, field):
     option = db.session.query(NewOption).filter_by(id=object['id']).first()
     print("updating option", object, field,)
     print(option)
-    setattr(option, field, object[field])
+    if field == 'text' and object['text'] == '':
+        print("deleting option"+'\n\n*******')
+        db.session.delete(option)
+    else:
+        value = object[field]
+        setattr(option, field, value)
     db.session.commit()
+    return
+
 
 @app.route("/update", methods=["POST"])
 def update():

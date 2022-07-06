@@ -139,14 +139,16 @@ async function serverCall(data: any, path: string, expect_json: boolean = false)
 
 async function serverGetLogprobs(props: { prompt: string, engine: EngineName }):
   Promise<{ answer_logprobs: LogProbs; }> {
-  return serverCall(props, '/get_logprobs');
+  return serverCall(props, '/get_logprobs', true);
 
 }
 
 async function serverGetOptions(
   data: { prompt: string, temp: number, engine: EngineName, n: number }
 ): Promise<{ option_texts: string[] }> {
-  return serverCall(data, '/get_options');
+  let res = await serverCall(data, '/get_action_options', true);
+  console.log('got options', res);
+  return res;
 }
 
 async function saveNewSeq(data: Sequence) {
@@ -226,6 +228,7 @@ const StepRow = (props: { step: Step, app: App }) => {
       </td>
       <td>
         <EditableTextField {...env_props} {...textarea_props} />
+
       </td>
     </tr>
     <tr>
@@ -244,6 +247,9 @@ const StepRow = (props: { step: Step, app: App }) => {
             <tr>
               <td colSpan={5}>
                 <button className='new_option' onClick={() => app.addNewOption(step)}>New Option</button>
+                <button onClick={() => app.getOptions(step)}>Get Options from model </button>
+                <button onClick={() => app.getAnswers(step)}>Get Logprobs from model </button>
+
               </td>
             </tr>
           </tbody>
@@ -345,12 +351,20 @@ const Seq = (props: {
     const notes_props = {
       className: "reasoning",
       key: seq.id + ' notes',
-      maxRows: 10,
+      rows: 1,
+    }
+    const capabilities_props = {
+      className: "reasoning",
+      key: seq.id + ' capabilities',
+      rows: 1,
     }
 
     // autosize is too slow for browse mode
     let notes_jsx = <EditableTextField field="notes" object={seq}
       which="seq" app={app} other_props={notes_props} />;
+
+    // let capabilities_jsx = <EditableTextField field="capabilities" object={seq}
+    //   which="seq" app={app} other_props={capabilities_props} />;
 
     const rows_jsx = seq.steps.map((step, _) => {
       return <StepRow key={`${seq.id} ${step.id}`} step={step} app={app} />
@@ -393,6 +407,12 @@ const Seq = (props: {
       <tr >
         <td className="dataset_log_buttons_td" colSpan={4} >
           {notes_jsx}
+
+        </td>
+      </tr>
+      <tr >
+        <td className="dataset_log_buttons_td" colSpan={4} >
+          { }
 
         </td>
       </tr>
@@ -668,16 +688,10 @@ You have a smart AI assistant, which is another program running on the same comp
 
 function EditArea(props: { app: App, seq: Sequence }) {
   const { app, seq } = props;
+  const { temp, n_tokens, engine, setting, show_setting, author } = app.state;
 
   const option_start_text = "\nOptions:\n1) "
 
-
-  const [temp, setTemp] = useState(0);
-  const [n_tokens, setNTokens] = useState(50);
-  const [setting, setSetting] = useState(setting_initial);
-  const [show_setting, setShowSetting] = useState(false);
-  const [engine, setEngine] = useState('text-davinci-002' as EngineName);
-  const [author, setAuthor] = useState('anon');
 
 
   async function get_completion(step: Step,) {
@@ -687,38 +701,7 @@ function EditArea(props: { app: App, seq: Sequence }) {
     return data.completion;
   }
 
-  function formatOptions(options_list: Option[]) {
-    let options = '\n';
-    options_list.forEach((option, i) => {
-      options += `${i + 1}) ${option.text}\n`;
-    })
-    return options;
-  }
-  function addNewOption(option_text: string, step: Step) {
-    //TODO
-  }
-  async function get_answers(step: Step, seq: Sequence) {
-    const prompt = app.getBefore(step) + step.environment + formatOptions(step.options_list) + '\n> The best action is option';
-    const answers = { ...await serverGetLogprobs({ prompt, engine }) }.answer_logprobs;
-    let new_options_list = [...step.options_list];
-    for (let key in answers) {
-      if (new_options_list.hasOwnProperty(parseInt(key) - 1)) {
-        new_options_list[parseInt(key) - 1].logprob = answers[key];
-      }
 
-      //TODO: update everything with the new logprobs
-    }
-  }
-
-  async function get_action_options(step: Step, seq: Sequence) {
-    console.log('get action options, engine: ' + engine);
-    // send text, temperature to Flask backend
-    const data = { "prompt": app.getBefore(step) + step.environment + '\n> Action:', "temp": temp, 'engine': engine, 'n': 9 }
-    const new_options: string[] = { ...await serverGetOptions(data) }.option_texts;
-    for (let i = 0; i < new_options.length; i++) {
-      addNewOption(new_options[i], step);
-    }
-  }
 
   const SettingBox = () => {
     if (show_setting) {
@@ -726,7 +709,7 @@ function EditArea(props: { app: App, seq: Sequence }) {
         <div >
           <TextareaAutosize key="setting_textarea"
             id="setting_textarea" maxRows={25}
-            value={setting} onChange={(e) => setSetting(e.target.value)} />
+            value={setting} onChange={(e) => app.setState({ setting: e.target.value })} />
           <br></br>
         </div>
       )
@@ -749,19 +732,22 @@ function EditArea(props: { app: App, seq: Sequence }) {
       <div className="settings_bar">
         <div className='setting'>
           <input key="temp" type="number" value={temp}
-            onChange={(e) => setTemp(Number(e.target.value))} />
+            onChange={(e) => app.setState({ temp: parseInt(e.target.value) })} />
           <label htmlFor="temp">Temp</label>
         </div>
         <div className='setting'>
-          <input id="ntokens" type="number" value={n_tokens} onChange={(e) => setNTokens(Number(e.target.value))} />
+          <input id="ntokens" type="number" value={n_tokens} onChange={(e) =>
+            app.setState({ n_tokens: Number(e.target.value) })} />
           <label htmlFor="n_tokens">NTokens</label>
         </div>
         <div className='setting'>
-          <input id="change_show_setting" type="checkbox" value={String(show_setting)} onChange={(e) => setShowSetting(!show_setting)} />
+          <input id="change_show_setting" type="checkbox" value={String(show_setting)} onChange={(e) => app.setState({ show_setting: e.target.checked })} />
           <label htmlFor="change_show_setting">Show Setting</label>
         </div>
         <div className='setting' style={{ backgroundColor: author_color }} >
-          <input id="change_author" type="text" value={author} onChange={(e) => setAuthor(e.target.value)} style={{ backgroundColor: author_color }} />
+          <input id="change_author" type="text" value={author}
+            onChange={(e) => app.setState({ author: e.target.value })}
+            style={{ backgroundColor: author_color }} />
           <label htmlFor="change_author" >Author</label>
         </div>
       </div>
@@ -772,7 +758,7 @@ function EditArea(props: { app: App, seq: Sequence }) {
             return (
               <label key={Math.random()} htmlFor={eng} >{engines[eng as EngineName]['shortname']}
                 <input type="radio" value={eng} name="engine"
-                  checked={engine === eng} onChange={(e) => setEngine(e.target.value as EngineName)} />
+                  checked={engine === eng} onChange={(e) => app.setState({ engine: e.target.value as EngineName })} />
 
               </label>
             )
@@ -810,7 +796,7 @@ function makeNewOption(step: Step) {
     timestamp: new Date().getTime().toString(),
     id: Math.random().toString(),
     step_id: step.id,
-    text: '',
+    text: ' ',
     logprob: null,
     selected: false,
     correct: false,
@@ -833,12 +819,34 @@ interface AppState {
   // dataset_logs: DatasetExample[];
   // all_dataset_logs: DatasetExample[];
   // mode: 'normal' | 'browse';
+  // const [temp, setTemp] = useState(0);
+  // const [n_tokens, setNTokens] = useState(50);
+  // const [setting, setSetting] = useState(setting_initial);
+  // const [show_setting, setShowSetting] = useState(false);
+  // const [engine, setEngine] = useState('text-davinci-002' as EngineName);
+  // const [author, setAuthor] = useState('anon');
+
   current_seqs: { [id: string]: Sequence };
+  temp: number;
+  n_tokens: number;
+  setting: string;
+  show_setting: boolean;
+  engine: EngineName;
+  author: string;
 }
 
 class App extends React.PureComponent<{}, AppState> {
   constructor(props: {}) {
     super(props)
+    this.state = {
+      current_seqs: {},
+      temp: 0,
+      n_tokens: 50,
+      setting: setting_initial,
+      show_setting: false,
+      engine: 'text-davinci-002' as EngineName,
+      author: 'anon',
+    }
 
   }
 
@@ -859,7 +867,7 @@ class App extends React.PureComponent<{}, AppState> {
     }
     var before = sequence.setting;
     for (let i = 0; i < sequence.steps.length; i++) {
-      before += sequence.steps[i].environment + getAction(sequence.steps[i]);
+      before += '\n' + sequence.steps[i].environment + '\n> Action:' + getAction(sequence.steps[i]);
     }
     return before;
   }
@@ -904,12 +912,47 @@ class App extends React.PureComponent<{}, AppState> {
     return new_step;
   }
 
-  addNewOption(step: Step) {
+  addNewOption(step: Step, text: string = ' ', author: string = this.state.author) {
     const new_options = [...step.options_list];
     const position = new_options.length;
-    new_options[position] = makeNewOption(step);
+    const new_option = makeNewOption(step);
+    new_option.text = text;
+    new_option.author = author;
+    new_options[position] = new_option;
     this.handleChange(null, new_options, step, 'options_list', true, false);
   }
+
+
+  async getOptions(step: Step) {
+    console.log('get action options, engine: ' + this.state.engine);
+    // send text, temperature to Flask backend
+    const data = { "prompt": this.getBefore(step) + step.environment + '\n> Action:', "temp": this.state.temp, 'engine': this.state.engine, 'n': 9 }
+    const new_options: string[] = { ...await serverGetOptions(data) }.option_texts;
+    for (let i = 0; i < new_options.length; i++) {
+      this.addNewOption(step, new_options[i], this.state.engine);
+    }
+  }
+  formatOptions(options_list: Option[]) {
+    let options = '\n';
+    options_list.forEach((option, i) => {
+      options += `${i + 1}) ${option.text}\n`;
+    })
+    return options;
+  }
+
+  async getAnswers(step: Step) {
+    const seq = this.getSeq(step.sequence_id);
+    const prompt = this.getBefore(step) + step.environment + this.formatOptions(step.options_list) + '\n> The best action is option';
+    const answers = { ...await serverGetLogprobs({ prompt, engine: this.state.engine }) }.answer_logprobs;
+    let new_options_list = [...step.options_list];
+    for (let i = 0; i < answers.length; i++) {
+      // new_options_list[i].logprob = answers[i];
+      this.handleOptionChange(null, answers[i], new_options_list[i], 'logprob', true, false);
+    }
+    //update logprob engine
+    this.handleChange(null, this.state.engine, step, 'logprob_engine', true, false);
+  }
+
 
   // addDatasetLogs(data: DatasetExample) {
   //   this.setState({ dataset_logs: [...this.state.dataset_logs, data] });
@@ -988,7 +1031,7 @@ class App extends React.PureComponent<{}, AppState> {
   }
   handleOptionChange(
     e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
-    value: string | boolean,
+    value: string | boolean | number,
     option_obj: Option,
     field: keyof Option,
     push: boolean = true,
@@ -1002,27 +1045,40 @@ class App extends React.PureComponent<{}, AppState> {
     const step = seq.steps.filter(step => step.id === option_obj.step_id)[0];
     const new_options_list = [...step.options_list];
 
-
-    //if field is selected, unselect all other options
-    if (field === 'selected') {
-      for (let i = 0; i < new_options_list.length; i++) {
-        if (new_options_list[i].selected) {
-          const new_option = { ...new_options_list[i] };
-          new_option.selected = false;
-          new_options_list[i] = new_option;
-        }
-      }
-    }
     const new_option: Option = { ...option_obj, [field]: value };
-
-
     new_options_list[option_obj.position] = new_option;
+
+
     console.log('new_options_list: ', new_options_list);
     console.log(this)
 
-    this.handleChange(e, new_options_list, step, 'options_list', false, resiz);
-    if (push) {
-      serverUpdate({ object: new_option, which: 'option', field: field });
+    //if field is selected, unselect all other options
+    if (field === 'selected' && value) {
+      for (let i = 0; i < new_options_list.length; i++) {
+        if (new_options_list[i].selected && i !== option_obj.position) {
+          new_options_list[i].selected = false;
+        }
+      }
+      //push changes at step level      
+      this.handleChange(e, new_options_list, step, 'options_list', true, resiz);
+
+    }
+    //if field is text and it's empty, delete the option
+    if (field === 'text' && value === '') {
+      new_options_list.splice(option_obj.position, 1);
+      //update all the option positions
+      for (let i = option_obj.position; i < new_options_list.length; i++) {
+        new_options_list[i].position = i;
+      }
+      //push changes at step level      
+      this.handleChange(e, new_options_list, step, 'options_list', true, resiz);
+    } else {
+      if (push) {
+        serverUpdate({ object: new_option, which: 'option', field: field });
+      }
+
+
+      this.handleChange(e, new_options_list, step, 'options_list', false, resiz);
     }
   }
 
