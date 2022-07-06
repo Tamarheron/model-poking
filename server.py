@@ -228,14 +228,15 @@ def save_seq():
 
 def update_seq(object, field):
     print("update_seq")
-    seq = db.Session.query(Sequence).filter_by(id=object['id']).first()
+    seq = db.session.query(Sequence).filter_by(id=object['id']).first()
     value = object[field]
     if field == 'steps':
+        steps=[]
         for step in value:
             step_obj = db.session.query(Step).filter_by(id=step['id']).first()
             if step_obj is None:
                 new_options = []
-                for option in step['options_list'].values():
+                for option in step['options_list']:
                     new_option = NewOption(**option)    
                     new_options.append(new_option)
                     db.session.add(new_option)
@@ -244,7 +245,8 @@ def update_seq(object, field):
                 step['options_list'] = new_options
                 step_obj = Step(**step)
                 db.session.add(step_obj)
-            step = step_obj
+            steps.append(step_obj)
+        value=steps
     #update fields
     print("updating seq", object, field,)
     print(object[field])
@@ -255,7 +257,6 @@ def update_step(object, field):
     step = db.session.query(Step).filter_by(id=object['id']).first()
     value = object[field]
     if field == 'options_list':
-        value = list(value.values())
         new_options = []
         for option in value:
             option_obj = db.session.query(NewOption).filter_by(id=option['id']).first()
@@ -266,7 +267,6 @@ def update_step(object, field):
         value = new_options
     print("updating step", object, field,)
     print(type(value))
-    print(type(value[0]))
     print(step)
     setattr(step, field, value)
     db.session.commit()
@@ -320,9 +320,8 @@ def get_sequence_logs():
 def step_to_dict(step):
     print("step_to_dict")
     d = dataclasses.asdict(step)
-    d["options_list"] = {
-        option.id: dataclasses.asdict(option) for option in step.options_list
-    }
+    d["options_list"] = [ dataclasses.asdict(option) for option in step.options_list
+    ]
     return d
 
 def seq_to_dict(example):

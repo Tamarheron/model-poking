@@ -700,7 +700,7 @@ function EditArea(props: { app: App, seq: Sequence }) {
   async function get_answers(step: Step, seq: Sequence) {
     const prompt = app.getBefore(step) + step.environment + formatOptions(step.options_list) + '\n> The best action is option';
     const answers = { ...await serverGetLogprobs({ prompt, engine }) }.answer_logprobs;
-    let new_options_list = { ...step.options_list };
+    let new_options_list = [...step.options_list];
     for (let key in answers) {
       if (new_options_list.hasOwnProperty(parseInt(key) - 1)) {
         new_options_list[parseInt(key) - 1].logprob = answers[key];
@@ -805,7 +805,7 @@ function EditArea(props: { app: App, seq: Sequence }) {
 }
 
 function makeNewOption(step: Step) {
-  let position = Object.keys(step.options_list).length
+  let position = step.options_list.length
   return {
     timestamp: new Date().getTime().toString(),
     id: Math.random().toString(),
@@ -905,8 +905,8 @@ class App extends React.PureComponent<{}, AppState> {
   }
 
   addNewOption(step: Step) {
-    const new_options = { ...step.options_list };
-    const position = Object.keys(new_options).length;
+    const new_options = [...step.options_list];
+    const position = new_options.length;
     new_options[position] = makeNewOption(step);
     this.handleChange(null, new_options, step, 'options_list', true, false);
   }
@@ -1000,12 +1000,12 @@ class App extends React.PureComponent<{}, AppState> {
     //look up seq by id
     const seq = this.getSeq(option_obj.sequence_id);
     const step = seq.steps.filter(step => step.id === option_obj.step_id)[0];
-    const new_options_list = { ...step.options_list };
+    const new_options_list = [...step.options_list];
 
 
     //if field is selected, unselect all other options
     if (field === 'selected') {
-      for (let i = 0; i < Object.keys(new_options_list).length; i++) {
+      for (let i = 0; i < new_options_list.length; i++) {
         if (new_options_list[i].selected) {
           const new_option = { ...new_options_list[i] };
           new_option.selected = false;
