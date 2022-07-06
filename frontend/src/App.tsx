@@ -1057,10 +1057,9 @@ class App extends React.PureComponent<{}, AppState> {
       for (let i = 0; i < new_options_list.length; i++) {
         if (new_options_list[i].selected && i !== option_obj.position) {
           new_options_list[i].selected = false;
+          serverUpdate({ object: new_options_list[i], which: 'option', field: 'selected' });
         }
       }
-      //push changes at step level      
-      this.handleChange(e, new_options_list, step, 'options_list', true, resiz);
 
     }
     //if field is text and it's empty, delete the option
