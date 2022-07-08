@@ -240,3 +240,7 @@ td.option_text {
   min-height: 10cm;
 
 }
+
+.log_text {
+  white-space: pre-line;
+}

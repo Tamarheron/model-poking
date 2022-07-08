@@ -83,6 +83,8 @@ class NewOption(db.Model):
     sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
     timestamp:string
     timestamp = db.Column(db.String)
+    engine: string
+    engine = db.Column(db.String)
 @dataclass
 class Step(db.Model):
     id: string
@@ -126,6 +128,8 @@ class Sequence(db.Model):
     success = db.Column(db.String)
     timestamp:string
     timestamp = db.Column(db.String)
+    name:string
+    name = db.Column(db.String)
 
 
 
@@ -226,6 +230,16 @@ def save_seq():
             db.session.add(NewOption(**option))
     db.session.commit()
     return 'saved'
+
+@app.route("/delete_step", methods=["POST"])
+def delete_step():
+    print("delete_step")
+    data = flask.request.get_json()
+    id = data["id"]
+    step = Step.query.filter_by(id=id).first()
+    db.session.delete(step)
+    db.session.commit()
+    return 'deleted'
 
 def update_seq(object, field):
     print("update_seq")
