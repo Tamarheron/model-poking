@@ -153,7 +153,7 @@ async function serverGetOptions(
   return res;
 }
 
-async function saveNewSeq(data: Sequence) {
+async function serverSaveSequence(data: Sequence) {
   console.log('saving new sequence', data);
   await serverCall(data, '/save_seq');
   return
@@ -458,10 +458,21 @@ const Seq = (props: {
     })
 
     const bottom_jsx = SeqInfo({ seq, app });
+    const history = []
+    // let current_seq = seq
+    // while (current_seq.parent_ids.length > 0){
+    //   let parent_step = getStepByID(current_seq.parent_ids[0])
+    //   current_seq = parent_step.sequence_id
+    //   history.push(getSeqByID(current_seq))
+
+
+
+    // }
 
     example = <div >
       <table className="seq">
         <thead>
+
         </thead>
         <tbody>
           {rows_jsx}
@@ -921,11 +932,6 @@ class App extends React.PureComponent<{}, AppState> {
     this.handleSeqChange(null, new_steps, seq, 'steps', true, false)
   }
 
-  async saveThenAddNewStep(seq: Sequence) {
-    await saveNewSeq(seq);
-    this.addNewStep(seq);
-    this.focusSeq(seq);
-  }
   makeNewOption(step: Step, position: number) {
     return {
       timestamp: new Date().getTime().toString(),
@@ -947,25 +953,34 @@ class App extends React.PureComponent<{}, AppState> {
 
   makeNewSequence() {
     const new_seq = {
-      setting: setting_initial,
-      steps: [],
+      setting: this.state.setting,
+      steps: [] as Step[],
       timestamp: new Date().getTime().toString(),
       id: Math.random().toString(),
       parent_ids: [] as string[],
       author: this.state.author, notes: "", show: true, starred: false, success: "", name: "",
     }
-    this.saveThenAddNewStep(new_seq);
+    const new_steps = [this.makeNewStep(new_seq)];
+    new_seq.steps = new_steps;
     return new_seq;
+  }
+
+  makeAndSaveNewSequence() {
+    const new_seq = this.makeNewSequence();
+    serverSaveSequence(new_seq);
+
   }
 
   async newSeqFromStep(step: Step): Promise<void> {
     const new_seq = this.makeNewSequence();
     new_seq.parent_ids = [step.id];
-    await this.saveThenAddNewStep(new_seq);
-    this.focusSeq(new_seq);
+    console.log('new seq from step, new_seq: ', new_seq);
     const action_text = `\nYour current subgoal is: "${getAction(step)}"`
     const start_text = action_text + '\nWhat do you want to do next?';
-    this.handleChange(null, start_text, new_seq.steps[0], 'environment', true)
+    new_seq.steps[0].environment = start_text;
+    serverSaveSequence(new_seq)
+    const new_children = [...step.children_ids, new_seq.id];
+    this.handleChange(null, new_children, step, 'children_ids', true, false);
 
   }
 
@@ -1092,7 +1107,7 @@ class App extends React.PureComponent<{}, AppState> {
 
   handleChange(
     e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
-    value: string | boolean | Option[],
+    value: string | boolean | Option[] | string[],
     step: Step,
     field: keyof Step,
     push: boolean = true,
@@ -1151,6 +1166,7 @@ class App extends React.PureComponent<{}, AppState> {
       //update all the option positions
       for (let i = option_obj.position; i < new_options_list.length; i++) {
         new_options_list[i].position = i;
+        serverUpdate({ object: new_options_list[i], which: 'option', field: 'position' });
       }
       //push changes at step level      
       this.handleChange(e, new_options_list, step, 'options_list', true, resiz);
@@ -1192,7 +1208,7 @@ class App extends React.PureComponent<{}, AppState> {
     let jsx = <div>Loading...</div>
     if (this.state !== null) {
       jsx = <div>
-        <button onClick={() => this.makeNewSequence()}>New Sequence</button>
+        <button onClick={() => this.makeAndSaveNewSequence()}>New Sequence</button>
         {switch_page_button}
       </div>
 
@@ -1248,6 +1264,10 @@ export default App;
 
 
 
+async function getStepByID(id: string) {
+  return await serverCall(id, '/get_step', true)
+
+}
 /*
 TODO: 
 -add button on step to start new subgoal

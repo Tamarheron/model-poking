@@ -223,11 +223,13 @@ def get_logprobs():
 def save_seq():
     print("save_seq")
     data = flask.request.get_json()
-    db.session.add(Sequence(**data))
     for step in data["steps"]:
-        db.session.add(Step(**step))
+        step = Step(**step)
+        db.session.add(step)
         for option in step["options_list"].values():
-            db.session.add(NewOption(**option))
+            option = NewOption(**option)
+            db.session.add(option)
+    db.session.add(Sequence(**data))
     db.session.commit()
     return 'saved'
 
