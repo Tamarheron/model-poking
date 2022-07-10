@@ -39,7 +39,7 @@ interface Sequence {
   setting: string;
   steps: Step[];
   id: string;
-  parents: string[];
+  parent_ids: string;
   author: string;
   notes: string;
   show: boolean;
@@ -57,7 +57,7 @@ interface Step {
   environment: string;
   options_list: Option[];
   notes: string;
-  children: string[];
+  children_ids: string;
   logprob_engine?: EngineName;
   author: string;
   timestamp: string;
@@ -260,7 +260,7 @@ const StepRow = (props: { step: Step, app: App }) => {
       </td>
     </tr>
     <tr>
-      <td colSpan={3}>
+      <td colSpan={3} className='all_options'>
         <table>
           <tbody>
             {oal}
@@ -364,17 +364,20 @@ const SeqLog = (props: { seq: Sequence, app: App }): JSX.Element => {
     text = app.getFullPrompt(last_step, null, false)
   }
   return (
-    <table>
-      <tbody>
-        <tr>
-          <td className={'log_text'} onClick={(e) => app.focusSeq(seq)}>
-            {text}
-          </td>
-        </tr>
-        <SeqInfo {...props} />
+    <div className='seqlog'>
 
-      </tbody>
-    </table>
+      <table className='seqlog'>
+        <tbody>
+          <SeqInfo {...props} />
+          <tr>
+            <td className={'log_text'} onClick={(e) => app.focusSeq(seq)}>
+              {text}
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
   )
 }
 const SeqInfo = (props: { seq: Sequence, app: App }): JSX.Element => {
@@ -914,6 +917,9 @@ class App extends React.PureComponent<{}, AppState> {
       const top_seq = Object.values(current_seqs)[0];
       console.log('top_seq: ', top_seq);
       history = await this.getHistory(top_seq)
+      history = <tr>
+        <td className='history' colSpan={3}>{history}</td>
+      </tr>
     }
     this.setState({ current_seqs, history });
 
@@ -980,7 +986,7 @@ class App extends React.PureComponent<{}, AppState> {
       steps: [] as Step[],
       timestamp: new Date().getTime().toString(),
       id: Math.random().toString(),
-      parents: [] as string[],
+      parent_ids: '',
       author: this.state.author, notes: "", show: true, starred: false, success: "", name: "",
     }
     const new_steps = [this.makeNewStep(new_seq)];
@@ -1000,31 +1006,31 @@ class App extends React.PureComponent<{}, AppState> {
   async getHistory(seq: Sequence): Promise<JSX.Element> {
     const history = [] as Sequence[];
     let current_seq = seq
-    while (current_seq.parents != null && current_seq.parents.length > 0) {
+    while (current_seq.parent_ids != null && current_seq.parent_ids.length > 0) {
       console.log('current_seq: ', current_seq);
-      let parent_step = await getStepByID(current_seq.parents[0])
+      let parent_step = await getStepByID(current_seq.parent_ids.split(' ')[0])
+      console.log('parent_step: ', parent_step);
       current_seq = await getSeqByID(parent_step.sequence_id)
       history.push(current_seq)
     }
+    console.log('history: ', history);
     history.reverse()
     let jsx = <></>
     for (let i = 0; i < history.length; i++) {
-      jsx = <> {jsx} <span className={'historylink'}
-        onClick={() => this.focusSeq(history[i])}>{history[i].name}</span>
-      </>
+      jsx = <> {jsx} <div className={'historylink'} onClick={() => this.focusSeq(history[i])}>{' > '}<span className='historylink'>{history[i].name}</span></div></>
     }
     return jsx
   }
   async newSeqFromStep(step: Step): Promise<void> {
     const new_seq = this.makeNewSequence();
-    new_seq.parents = [step.id];
+    new_seq.parent_ids = step.id;
     console.log('new seq from step, new_seq: ', new_seq);
     const action_text = `\nYour current subgoal is: "${getAction(step)}"`
     const start_text = action_text + '\nWhat do you want to do next?';
     new_seq.steps[0].environment = start_text;
     serverSaveSequence(new_seq)
-    const new_children = [...step.children, new_seq.id];
-    this.handleChange(null, new_children, step, 'children', true, false);
+    const new_children_ids = step.children_ids + ` ${new_seq.id}`;
+    this.handleChange(null, new_children_ids, step, 'children_ids', true, false);
     this.focusSeq(new_seq);
 
   }
@@ -1051,7 +1057,7 @@ class App extends React.PureComponent<{}, AppState> {
       environment: "",
       options_list: [],
       notes: "",
-      children: [],
+      children_ids: '',
       author: this.state.author,
     }
     const option = this.makeNewOption(new_step, 0);
@@ -1156,11 +1162,10 @@ class App extends React.PureComponent<{}, AppState> {
       resize(e.target)
     }
     // check if the value changed
-    if (value !== sequence[field]) {
+    if (value !== sequence[field] || push) {
       console.log('handle_ seq change, field: ', field);
       console.log('handle_ seq change, sequence: ', sequence);
-      const new_sequence = { ...sequence };
-      (new_sequence[field] as any) = value;
+      const new_sequence = { ...sequence, [field]: value };
       const new_seqs = { ...this.state.current_seqs };
       new_seqs[sequence.id] = new_sequence;
       this.setState({ current_seqs: new_seqs });
@@ -1300,7 +1305,7 @@ class App extends React.PureComponent<{}, AppState> {
           </>
           let logs = Object.values(this.state.current_seqs).filter(s => s.id !== seq.id);
           if (logs.length > 0) {
-            let seqlogs = logs.map(s => <SeqLog app={this} seq={s} key={Math.random()} />);
+            let seqlogs = logs.map(s => <SeqLog app={this} seq={s} key={s.id} />);
 
             jsx = <>
               {jsx}

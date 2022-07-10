@@ -48,7 +48,14 @@ div {
 
 td {
   padding: 3px;
-  border: 1px solid black;
+}
+
+td.all_options {
+  border: rgb(197, 201, 198) 2px solid;
+  border-radius: 3px;
+  padding: 10px;
+  background-color: #f2f2f27f;
+
 }
 
 table {
@@ -56,13 +63,22 @@ table {
   width: 100%;
 }
 
+div.seqlog {
+  display: flex;
+  border: rgb(205, 208, 202) 3px solid;
+  border-radius: 3px;
+
+}
+
+
+
 .env_act_labels {
-  width: 1cm;
+  width: 0%;
   border: 0px solid black;
 }
 
 .env_act_buttons {
-  width: 1.5cm;
+  width: 0%;
   border: 0px solid black;
 }
 
@@ -134,8 +150,10 @@ div.engine {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  border: 2px solid #ccc;
+  border: 3px solid rgb(162, 180, 208);
   border-radius: 3px;
+  margin-top: 10px;
+  background-color: aliceblue;
 }
 
 td.seq_info {
@@ -202,6 +220,23 @@ div.reasoning_label {
   width: fit-content;
   margin-right: 10px;
 }
+
+
+td.history {
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  margin: 4px;
+  border-bottom: 1px solid #ccc;
+
+}
+
+span.historylink {
+  color: rgb(83, 85, 203);
+  text-decoration: underline;
+}
+
+
 
 
 

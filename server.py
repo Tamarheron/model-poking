@@ -141,14 +141,9 @@ class Sequence(db.Model):
     name:string
     name = db.Column(db.String)
 
-    # parent_ids: List
-    # parent_ids = db.Column(db.String, db.ForeignKey("step.id"))
-    # parents = db.relationship("Step", back_populates="children", foreign_keys=[parent_ids])
+    parent_ids: string
+    parent_ids = db.Column(db.String)
 
-children = db.Table('children',
-    db.Column('sequence_id', db.String, db.ForeignKey('sequence.id'), primary_key=True),
-    db.Column('step_id', db.String, db.ForeignKey('step.id'), primary_key=True)
-)
 @dataclass
 class Step(db.Model):
     __tablename__ = "step"
@@ -170,12 +165,9 @@ class Step(db.Model):
     notes: string
     notes = db.Column(db.String)
     
-    # children_ids: List
-    # children_ids = db.Column(db.String, db.ForeignKey("sequence.id"))
-    children = db.relationship(
-        "Sequence", secondary=children, 
-        backref=db.backref('parents'),
-    )
+    children_ids: string
+    children_ids = db.Column(db.String)
+
     logprob_engine: string
     logprob_engine = db.Column(db.String)
     
@@ -298,14 +290,6 @@ def save_seq():
 
     print("added steps " + step.id)
     data['steps'] = step_objs
-    parent_objs = []
-    for parent in data["parents"]:
-        parent = Step.query.filter_by(id=parent).first()
-        parent_objs.append(parent)
-        print("added parents ", parent)
-
-    data['parents'] = parent_objs
-    print("added parents ", data['parents'])
     sequence = Sequence(**data)
     print("made sequence ", sequence)
     db.session.add(sequence)
@@ -372,18 +356,6 @@ def update_seq(object, field):
                     update_step(step, field)
             steps.append(step_obj)
         value=steps
-    elif field == 'parents':
-        parents=[]
-        for parent in value:
-            parent_obj = db.session.query(Step).filter_by(id=parent).first()
-            parents.append(parent_obj)
-        value=parents
-    elif field == 'children':
-        children=[]
-        for child in value:
-            child_obj = db.session.query(Sequence).filter_by(id=child).first()
-            children.append(child_obj)
-        value=children
     #update fields
     print("updating seq", object, field,)
     print(object[field])
