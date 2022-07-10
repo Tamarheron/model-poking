@@ -12,7 +12,7 @@ from psycopg2 import Timestamp
 from sqlalchemy.engine import Connection
 from dataclasses import dataclass
 import dataclasses
-from sqlalchemy import orm
+from sqlalchemy import ForeignKey, orm
 
 
 app = Flask(__name__, static_url_path="", static_folder="frontend/build")
@@ -91,7 +91,7 @@ class Step(db.Model):
     id = db.Column(db.String, primary_key=True)
     sequence_id: string
     sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
-    sequence = db.relationship("Sequence", back_populates="steps")
+    sequence = db.relationship("Sequence",  foreign_keys=[sequence_id])
     position: int
     position = db.Column(db.Integer)
     environment: string
@@ -99,8 +99,9 @@ class Step(db.Model):
     options_list = db.relationship("NewOption", back_populates="step")
     notes: string
     notes = db.Column(db.String)
-    children_ids: string
-    children_ids = db.Column(db.String)
+    children_ids: list
+    children_ids = db.Column(db.String, db.ForeignKey("sequence.id"))
+    children = db.relationship("Sequence", foreign_keys=[children_ids])
     logprob_engine: string
     logprob_engine = db.Column(db.String)
     author: string
@@ -114,8 +115,8 @@ class Sequence(db.Model):
     steps = db.relationship("Step", back_populates="sequence")
     id: string
     id = db.Column(db.String, primary_key=True)
-    parent_ids: string
-    parent_ids = db.Column(db.String)
+    parent_ids: list
+    parent_ids = db.relationship("Step", back_populates="children")
     author: string
     author = db.Column(db.String)
     notes: string
@@ -185,6 +186,8 @@ def get_action_options():
     completions = [choice.text for choice in response.choices]
     # remove duplicates
     completions = list(set(completions))
+    #remove blank
+    completions = [c for c in completions if c != ""]
     print("completion: ", completions)
     return json.dumps({"option_texts": completions})
 
@@ -214,6 +217,7 @@ def get_logprobs():
     logprobs = response.choices[0].logprobs.top_logprobs
     answer_logprobs = logprobs[0]
 
+
     return json.dumps(
         {"answer_logprobs": answer_logprobs} 
     )
@@ -223,12 +227,23 @@ def get_logprobs():
 def save_seq():
     print("save_seq")
     data = flask.request.get_json()
+    step_objs = []
     for step in data["steps"]:
-        step = Step(**step)
-        db.session.add(step)
-        for option in step["options_list"].values():
+        option_objs = []
+        for option in step["options_list"]:
             option = NewOption(**option)
+            print('made option', option)
             db.session.add(option)
+            option_objs.append(option)
+        print('about to add step', step)
+        step['options_list'] = option_objs
+        step = Step(**step)
+        print('made step: ', step)
+        db.session.add(step)
+        step_objs.append(step)
+        print("added step: " + step.id)
+    data['steps'] = step_objs
+    print(data)
     db.session.add(Sequence(**data))
     db.session.commit()
     return 'saved'
@@ -242,6 +257,34 @@ def delete_step():
     db.session.delete(step)
     db.session.commit()
     return 'deleted'
+
+@app.route("/delete_sequence", methods=["POST"])
+def delete_sequence():
+    print("delete_sequence")
+    data = flask.request.get_json()
+    id = data["id"]
+    sequence = Sequence.query.filter_by(id=id).first()
+    db.session.delete(sequence)
+    db.session.commit()
+    return 'deleted'
+
+
+@app.route("/get_step", methods=["POST"])
+def get_step():
+    print("get_step")
+    data = flask.request.get_json()
+    id = data
+    step = Step.query.filter_by(id=id).first()
+    return json.dumps(dataclasses.asdict(step))
+
+@app.route("/get_sequence", methods=["POST"])
+def get_sequence():
+    print("get_sequence")
+    data = flask.request.get_json()
+    id = data
+    sequence = Sequence.query.filter_by(id=id).first()
+    return json.dumps(seq_to_dict(sequence))
+
 
 def update_seq(object, field):
     print("update_seq")
@@ -257,11 +300,12 @@ def update_seq(object, field):
                     new_option = NewOption(**option)    
                     new_options.append(new_option)
                     db.session.add(new_option)
-
-
                 step['options_list'] = new_options
                 step_obj = Step(**step)
                 db.session.add(step_obj)
+            else:
+                for field in step.keys():
+                    update_step(step, field)
             steps.append(step_obj)
         value=steps
     #update fields
@@ -280,6 +324,12 @@ def update_step(object, field):
             if option_obj is None:
                 option_obj = NewOption(**option)
                 db.session.add(option_obj)
+            else:
+                #update option
+                for key, value in option.items():
+                    setattr(option_obj, key, value)
+
+
             new_options.append(option_obj)
         value = new_options
         #delete old options

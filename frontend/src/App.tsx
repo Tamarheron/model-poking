@@ -109,20 +109,20 @@ async function apiCall(
   return await response.json();
 }
 
-const resize = (e: React.ChangeEvent<any>) => {
-  e.target.style.height = 'inherit';
+const resize = (textarea: HTMLTextAreaElement) => {
+  textarea.style.height = 'inherit';
 
   // Get the computed styles for the element
-  const computed = window.getComputedStyle(e.target);
+  const computed = window.getComputedStyle(textarea);
 
   // Calculate the height
   const height = parseInt(computed.getPropertyValue('border-top-width'), 10)
     + parseInt(computed.getPropertyValue('padding-top'), 10)
-    + e.target.scrollHeight
+    + textarea.scrollHeight
     + parseInt(computed.getPropertyValue('padding-bottom'), 10)
     + parseInt(computed.getPropertyValue('border-bottom-width'), 10) - 5;
 
-  e.target.style.height = `${height}px`;
+  textarea.style.height = `${height}px`;
 }
 
 async function serverCall(data: any, path: string, expect_json: boolean = false) {
@@ -141,7 +141,9 @@ async function serverCall(data: any, path: string, expect_json: boolean = false)
 
 async function serverGetLogprobs(props: { prompt: string, engine: EngineName }):
   Promise<{ answer_logprobs: LogProbs; }> {
-  return serverCall(props, '/get_logprobs', true);
+  const json = await serverCall(props, '/get_logprobs', true);
+  console.log('got logprobs', json);
+  return json;
 
 }
 
@@ -160,6 +162,9 @@ async function serverSaveSequence(data: Sequence) {
 }
 function serverDeleteStep(id: string) {
   return serverCall({ id }, '/delete_step');
+}
+function serverDeleteSeq(id: string) {
+  return serverCall({ id }, '/delete_sequence');
 }
 function serverUpdate( //object: Option | Step | Sequence, which: 'seq' | 'step' | 'option', field: string) {
   args: {
@@ -225,28 +230,32 @@ const StepRow = (props: { step: Step, app: App }) => {
     other_props: {
       maxRows: 10,
       className: 'env',
+      id: `env_textarea_${step.id}`
     },
     field: 'environment' as 'environment',
   }
   let oal = <OptionsAnswersList {...props} />;
   return (<>
     <tr>
-      <td>
+      <td className='env_act_labels'>
         Env:
       </td>
-      <td colSpan={2}>
+      <td colSpan={1} className='env'>
         <EditableTextField {...env_props} {...textarea_props} />
 
       </td>
+      <td className='env_act_buttons'>
+        <button onClick={() => app.getCompletion(step)}>Completion</button>
+      </td>
     </tr>
     <tr>
-      <td>
+      <td className='env_act_labels'>
         Action:
       </td>
       <td>
         {getAction(step)}
       </td>
-      <td>
+      <td className='env_act_buttons'>
         <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
       </td>
     </tr>
@@ -338,7 +347,7 @@ const EditableTextField = (props: {
 
   return (
     <>
-      <textarea value={value}
+      <TextareaAutosize value={value}
         onChange={(e) => handler(e, e.target.value, object, field, false, true)}
         onBlur={(e) => handler(e, e.target.value, object, field, true, true)}
         onClick={(e) => handler(e, (e.target as HTMLTextAreaElement).value, object, field, true, true)}
@@ -399,56 +408,53 @@ const SeqInfo = (props: { seq: Sequence, app: App }): JSX.Element => {
 
   const bottom_jsx = <>
     <tr>
-      <td className="dataset_log_buttons_td" colSpan={4}>
-        Id: {new Date(parseInt(seq.id) * 1000).toLocaleString()}
-        <label htmlFor="author_edit">
-          Author:
-          <input type='text'
-            key={seq.id + ' author edit'}
-            className="author_edit"
-            id="author_edit"
-            value={author}
-            onChange={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', false)}
-            onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', true)}
-          />
-        </label>
-        <label htmlFor="author_edit">
-          Seq name:
-          <input type='text'
-            key={seq.id + ' name edit'}
-            className="author_edit"
-            id="author_edit"
-            value={name}
-            onChange={(e) => app.handleSeqChange(e, e.target.value, seq, 'name', false)}
-            onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'name', true)}
-          />
-        </label>
-
-        {/* {save_button}
-        <LogButton key={'archive' + seq.id} fun={() => app.handleArchive(seq)} label="archive" />
+      <td className="seq_info" colSpan={4}>
+        <div className="seq_info_outer">
+          <div className='timestamp'>
+            {new Date(parseInt(seq.timestamp)).toLocaleString()}
+          </div>
+          <div className='seq_info'>
+            <label htmlFor="author_edit">
+              Author:
+              <input type='text'
+                key={seq.id + ' author edit'}
+                className="author_edit"
+                id="author_edit"
+                value={author}
+                onChange={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', false)}
+                onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', true)}
+              />
+            </label>
+            <label htmlFor="seqname_edit">
+              Seq name:
+              <input type='text'
+                key={seq.id + ' name edit'}
+                className="seqname_edit"
+                id="seqname_edit"
+                value={name}
+                onChange={(e) => app.handleSeqChange(e, e.target.value, seq, 'name', false)}
+                onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'name', true)}
+              />
+            </label>
+            <button onClick={() => app.deleteSeq(seq)}>Delete seq</button>
+            <button onClick={() => app.hideSeq(seq)}>Hide seq</button>
+            {/* {save_button}
+          <LogButton key={'archive' + seq.id} fun={() => app.handleArchive(seq)} label="archive" />
         <LogButton key={'hide' + seq.id} fun={() => app.handleHide(seq)} label="hide" /> */}
-      </td>
-    </tr>
-    <tr >
-      <td className="dataset_log_buttons_td" colSpan={4} >
-        {notes_jsx}
-
-      </td>
-    </tr>
-    <tr >
-      <td className="dataset_log_buttons_td" colSpan={4} >
-
+          </div>
+        </div>
       </td>
     </tr>
   </>
   return bottom_jsx;
 }
 
+
 const Seq = (props: {
-  seq: Sequence, app: App
+  seq: Sequence, app: App, history: JSX.Element
 }): JSX.Element => {
 
-  const { seq, app } = props;
+  const { seq, app, history } = props;
   const browse = false; //TODO
   let example: React.ReactNode = <></>;
 
@@ -457,36 +463,44 @@ const Seq = (props: {
       return <StepRow key={`${seq.id} ${step.id}`} step={step} app={app} />
     })
 
-    const bottom_jsx = SeqInfo({ seq, app });
-    const history = []
-    // let current_seq = seq
-    // while (current_seq.parent_ids.length > 0){
-    //   let parent_step = getStepByID(current_seq.parent_ids[0])
-    //   current_seq = parent_step.sequence_id
-    //   history.push(getSeqByID(current_seq))
+    const info_jsx = SeqInfo({ seq, app });
+
+    const notes_props = {
+      className: "notes",
+      key: seq.id + ' notes',
+      rows: 1,
+    }
 
 
+    // autosize is too slow for browse mode
+    let notes_jsx = <EditableTextField field="notes" object={seq}
+      which="seq" app={app} other_props={notes_props} />
 
-    // }
-
-    example = <div >
+    example = <div className="seq_div" >
       <table className="seq">
         <thead>
-
+          {history}
+          {info_jsx}
         </thead>
         <tbody>
           {rows_jsx}
         </tbody>
         <tfoot>
           <tr>
+            <td className="notes_labels">
+              Notes:
+            </td>
+            <td colSpan={1} className='notes'>
+              {notes_jsx}
+            </td>
 
-            <td className="dataset_log_buttons_td" colSpan={4}>
+            <td className="dataset_log_buttons_td" colSpan={1}>
               <div className="dataset_log_buttons">
                 <button className="dataset_log_button" onClick={() => app.addNewStep(seq)}>New step</button>
               </div>
             </td>
           </tr>
-          {bottom_jsx}
+
         </tfoot>
       </table>
     </div>;
@@ -669,7 +683,15 @@ function SingleOption(props: {
   // author_td = <td className="author_td" onClick={() => handle_author_toggle()}>{author_name}</td>
   reasoning_jsx = <><tr className='reasoning'>
     <td colSpan={2} className='reasoning'>
-      <EditableTextField {...textarea_props} {...reasoning_textarea_props} />
+      <div className='reasoning_outer'>
+
+        <div className='reasoning_label'>
+          Reasoning:
+        </div>
+        <div className='reasoning'>
+          <EditableTextField {...textarea_props} {...reasoning_textarea_props} />
+        </div>
+      </div>
     </td>
     <td colSpan={1} className='rating' >
       <select className='rating'
@@ -751,20 +773,11 @@ You have a smart AI assistant, which is another program running on the same comp
 
 
 
-function EditArea(props: { app: App, seq: Sequence }) {
-  const { app, seq } = props;
+function EditArea(props: { app: App, seq: Sequence, history: JSX.Element }) {
+  const { app, seq, history } = props;
   const { temp, n_tokens, engine, setting, show_setting, author } = app.state;
 
   const option_start_text = "\nOptions:\n1) "
-
-
-
-  async function get_completion(step: Step,) {
-    // send text to OpenAI API
-    const data = await apiCall(app.getFullPrompt(step), temp, n_tokens, engine);
-    console.log(data.completion)
-    return data.completion;
-  }
 
 
 
@@ -810,7 +823,7 @@ function EditArea(props: { app: App, seq: Sequence }) {
           <label htmlFor="change_show_setting">Show Setting</label>
         </div>
         <div className='setting' style={{ backgroundColor: author_color }} >
-          <input id="change_author" type="text" value={author}
+          <input id="change_author" className='author_edit' type="text" value={author}
             onChange={(e) => app.setState({ author: e.target.value })}
             style={{ backgroundColor: author_color }} />
           <label htmlFor="change_author" >Author</label>
@@ -822,7 +835,7 @@ function EditArea(props: { app: App, seq: Sequence }) {
           {(Object.keys(engines)).map((eng) => {
             return (
               <label key={Math.random()} htmlFor={eng} >{engines[eng as EngineName]['shortname']}
-                <input type="radio" value={eng} name="engine"
+                <input type="radio" value={eng} className="engine"
                   checked={engine === eng} onChange={(e) => app.setState({ engine: e.target.value as EngineName })} />
 
               </label>
@@ -871,6 +884,7 @@ interface AppState {
   engine: EngineName;
   author: string;
   mode: 'normal' | 'browse'
+  history: JSX.Element
 }
 
 class App extends React.PureComponent<{}, AppState> {
@@ -886,19 +900,25 @@ class App extends React.PureComponent<{}, AppState> {
       show_setting: false,
       engine: 'text-davinci-002' as EngineName,
       author: 'anon',
-      mode: 'normal'
+      mode: 'normal',
+      history: <></>
     }
 
   }
 
   async componentDidMount() {
-    const current_seqs = await getSequenceLogsFromServer(5);
-    console.log('current_seqs: ' + current_seqs);
-    this.setState({ current_seqs });
+    const current_seqs = await getSequenceLogsFromServer(0);
+    console.log('current_seqs: ', current_seqs);
+    const top_seq = Object.values(current_seqs)[0];
+    console.log('top_seq: ', top_seq);
+    const history = await this.getHistory(top_seq)
+    this.setState({ current_seqs, history });
+
   }
 
-  focusSeq(seq: Sequence): void {
-    this.setState({ current_seqs: { [seq.id]: seq, ...this.state.current_seqs } })
+  async focusSeq(seq: Sequence): Promise<void> {
+    const history = await this.getHistory(seq)
+    this.setState({ current_seqs: { [seq.id]: seq, ...this.state.current_seqs }, history })
   }
   getBefore(step: Step, sequence: Sequence | null = null) {
     if (sequence === null) {
@@ -968,9 +988,30 @@ class App extends React.PureComponent<{}, AppState> {
   makeAndSaveNewSequence() {
     const new_seq = this.makeNewSequence();
     serverSaveSequence(new_seq);
+    const new_current_seqs = { ...this.state.current_seqs };
+    new_current_seqs[new_seq.id] = new_seq;
+    this.setState({ current_seqs: new_current_seqs });
 
   }
 
+  async getHistory(seq: Sequence): Promise<JSX.Element> {
+    const history = [] as Sequence[];
+    let current_seq = seq
+    // while (current_seq.parent_ids.length > 0) {
+    //   console.log('get_history, current_seq: ', current_seq);
+    //   let parent_step = await getStepByID(current_seq.parent_ids[0])
+    //   current_seq = await getSeqByID(parent_step.sequence_id)
+    //   history.push(current_seq)
+    // }
+    // history.reverse()
+    let jsx = <></>
+    for (let i = 0; i < history.length; i++) {
+      jsx = <> {jsx} <span className={'historylink'}
+        onClick={() => this.focusSeq(history[i])}>{history[i].name}</span>
+      </>
+    }
+    return jsx
+  }
   async newSeqFromStep(step: Step): Promise<void> {
     const new_seq = this.makeNewSequence();
     new_seq.parent_ids = [step.id];
@@ -981,8 +1022,22 @@ class App extends React.PureComponent<{}, AppState> {
     serverSaveSequence(new_seq)
     const new_children = [...step.children_ids, new_seq.id];
     this.handleChange(null, new_children, step, 'children_ids', true, false);
+    this.focusSeq(new_seq);
 
   }
+  async getCompletion(step: Step) {
+    // send text to OpenAI API
+    const data = await apiCall(this.getFullPrompt(step), this.state.temp, this.state.n_tokens, this.state.engine);
+    console.log(data.completion)
+    const new_text = step.environment + data.completion
+    this.handleChange(null, new_text, step, 'environment', true)
+    //resize textarea
+    const textarea = document.getElementById(`env_textarea_${step.id}`) as HTMLTextAreaElement;
+    resize(textarea);
+
+    return data.completion;
+  }
+
 
   makeNewStep(sequence: Sequence) {
     const new_step: Step = {
@@ -1037,16 +1092,24 @@ class App extends React.PureComponent<{}, AppState> {
   }
 
   async getAnswers(step: Step) {
-    const seq = this.getSeq(step.sequence_id);
     const prompt = this.getBefore(step) + step.environment + this.formatOptions(step.options_list) + '\n> The best action is option';
-    const answers = { ...await serverGetLogprobs({ prompt, engine: this.state.engine }) }.answer_logprobs;
-    let new_options_list = [...step.options_list];
-    for (let i = 0; i < answers.length; i++) {
-      // new_options_list[i].logprob = answers[i];
-      this.handleOptionChange(null, answers[i], new_options_list[i], 'logprob', true, false);
-    }
-    //update logprob engine
     this.handleChange(null, this.state.engine, step, 'logprob_engine', true, false);
+    console.log('getting logprobs: ');
+    const data = await serverGetLogprobs({ prompt, engine: this.state.engine })
+    const logprobs = { ...data.answer_logprobs };
+    console.log('logprobs: ', logprobs);
+    let new_options_list = [...step.options_list];
+    for (let i = 0; i < Object.keys(logprobs).length; i++) {
+      const choice = Object.keys(logprobs)[i];
+      const int = parseInt(choice);
+      console.log('choice: ' + choice + ' int: ' + int);
+      if (int != NaN && int < new_options_list.length) {
+        const logprob = logprobs[choice as keyof LogProbs];
+        console.log('logprob: ' + logprob);
+        new_options_list[int].logprob = logprob;
+      }
+    }
+    this.handleChange(null, new_options_list, step, 'options_list', true, false);
   }
 
 
@@ -1086,18 +1149,21 @@ class App extends React.PureComponent<{}, AppState> {
     push: boolean = true,
     resiz: boolean = false,
   ) {
-    console.log('handle_ seq change, field: ', field);
-    console.log('handle_ seq change, sequence: ', sequence);
     if (resiz && e !== null) {
-      resize(e)
+      resize(e.target)
     }
-    const new_sequence = { ...sequence };
-    (new_sequence[field] as any) = value;
-    const new_seqs = { ...this.state.current_seqs };
-    new_seqs[sequence.id] = new_sequence;
-    this.setState({ current_seqs: new_seqs });
-    if (push) {
-      serverUpdate({ object: new_sequence, which: 'seq', field: field });
+    // check if the value changed
+    if (value !== sequence[field]) {
+      console.log('handle_ seq change, field: ', field);
+      console.log('handle_ seq change, sequence: ', sequence);
+      const new_sequence = { ...sequence };
+      (new_sequence[field] as any) = value;
+      const new_seqs = { ...this.state.current_seqs };
+      new_seqs[sequence.id] = new_sequence;
+      this.setState({ current_seqs: new_seqs });
+      if (push) {
+        serverUpdate({ object: new_sequence, which: 'seq', field: field });
+      }
     }
   }
 
@@ -1113,17 +1179,20 @@ class App extends React.PureComponent<{}, AppState> {
     push: boolean = true,
     resiz: boolean = false,
   ) {
-    console.log('handle_ change, field: ', field);
-    console.log('handle_ change, step: ', step);
-    const new_step = { ...step };
-    (new_step as any)[field] = value;
-    // lookup seq by id
-    const seq = this.getSeq(step.sequence_id);
-    const new_steplist = [...seq.steps];
-    new_steplist[step.position] = new_step;
-    this.handleSeqChange(e, new_steplist, seq, 'steps', false, resiz);
-    if (push) {
-      serverUpdate({ object: new_step, which: 'step', field: field });
+    // check if the value changed
+    if (value !== step[field]) {
+      console.log('handle_ change, field: ', field);
+      console.log('handle_ change, step: ', step);
+      const new_step = { ...step };
+      (new_step as any)[field] = value;
+      // lookup seq by id
+      const seq = this.getSeq(step.sequence_id);
+      const new_steplist = [...seq.steps];
+      new_steplist[step.position] = new_step;
+      this.handleSeqChange(e, new_steplist, seq, 'steps', false, resiz);
+      if (push) {
+        serverUpdate({ object: new_step, which: 'step', field: field });
+      }
     }
   }
   handleOptionChange(
@@ -1134,49 +1203,48 @@ class App extends React.PureComponent<{}, AppState> {
     push: boolean = true,
     resiz: boolean = false,
   ) {
-    console.log('handle_option_change, option_obj: ', option_obj);
-    console.log('field: ', field, 'new value: ', value);
-    //look up seq by id
-    const seq = this.getSeq(option_obj.sequence_id);
-    const step = seq.steps.filter(step => step.id === option_obj.step_id)[0];
-    const new_options_list = [...step.options_list];
-    console.log('new_options_list before s: ', new_options_list);
-    console.log('position: ', option_obj.position);
+    // check if the value changed
+    if (value !== option_obj[field]) {
+      console.log('handle_option_change, option_obj: ', option_obj);
+      console.log('field: ', field, 'new value: ', value);
+      //look up seq by id
+      const seq = this.getSeq(option_obj.sequence_id);
+      const step = seq.steps.filter(step => step.id === option_obj.step_id)[0];
+      const new_options_list = [...step.options_list];
 
-    const new_option: Option = { ...option_obj, [field]: value };
-    new_options_list[option_obj.position] = new_option;
+      const new_option: Option = { ...option_obj, [field]: value };
+      new_options_list[option_obj.position] = new_option;
 
-    console.log('new_options_list: ', new_options_list);
-    console.log(this)
 
-    //if field is selected, unselect all other options
-    if (field === 'selected' && value) {
-      for (let i = 0; i < new_options_list.length; i++) {
-        if (new_options_list[i].selected && i !== option_obj.position) {
-          new_options_list[i].selected = false;
-          serverUpdate({ object: new_options_list[i], which: 'option', field: 'selected' });
+      //if field is selected, unselect all other options
+      if (field === 'selected' && value) {
+        for (let i = 0; i < new_options_list.length; i++) {
+          if (new_options_list[i].selected && i !== option_obj.position) {
+            new_options_list[i].selected = false;
+            serverUpdate({ object: new_options_list[i], which: 'option', field: 'selected' });
+          }
         }
+
       }
+      //if field is text and it's empty, delete the option
 
-    }
-    //if field is text and it's empty, delete the option
+      if (field === 'text' && value === '') {
+        new_options_list.splice(option_obj.position, 1);
+        //update all the option positions
+        for (let i = option_obj.position; i < new_options_list.length; i++) {
+          new_options_list[i].position = i;
+          serverUpdate({ object: new_options_list[i], which: 'option', field: 'position' });
+        }
+        //push changes at step level      
+        this.handleChange(e, new_options_list, step, 'options_list', true, resiz);
+      } else {
+        if (push) {
+          serverUpdate({ object: new_option, which: 'option', field: field });
+        }
 
-    if (field === 'text' && value === '') {
-      new_options_list.splice(option_obj.position, 1);
-      //update all the option positions
-      for (let i = option_obj.position; i < new_options_list.length; i++) {
-        new_options_list[i].position = i;
-        serverUpdate({ object: new_options_list[i], which: 'option', field: 'position' });
+
+        this.handleChange(e, new_options_list, step, 'options_list', false, resiz);
       }
-      //push changes at step level      
-      this.handleChange(e, new_options_list, step, 'options_list', true, resiz);
-    } else {
-      if (push) {
-        serverUpdate({ object: new_option, which: 'option', field: field });
-      }
-
-
-      this.handleChange(e, new_options_list, step, 'options_list', false, resiz);
     }
   }
 
@@ -1187,6 +1255,16 @@ class App extends React.PureComponent<{}, AppState> {
     serverDeleteStep(step.id)
     this.handleSeqChange(null, new_steps, this.getSeq(step.sequence_id), 'steps', false, false);
   }
+  deleteSeq(sequence: Sequence) {
+    const new_seqs = { ...this.state.current_seqs };
+    delete new_seqs[sequence.id];
+    serverDeleteSeq(sequence.id)
+    this.setState({ current_seqs: new_seqs });
+  }
+  hideSeq(sequence: Sequence) {
+    this.handleSeqChange(null, false, sequence, 'show', true, false);
+  }
+
 
   async handleChangeMode() {
     if (this.state.mode === 'normal') {
@@ -1199,7 +1277,6 @@ class App extends React.PureComponent<{}, AppState> {
 
 
   render() {
-
     const switch_page_button = (
       <button onClick={() => this.handleChangeMode()}>
         {this.state.mode === 'normal' ? 'Browse' : 'Normal'}
@@ -1216,7 +1293,7 @@ class App extends React.PureComponent<{}, AppState> {
         let seq = Object.values(this.state.current_seqs)[0]
         if (seq !== null) {
           jsx = <>
-            {jsx} <EditArea app={this} seq={seq} />
+            {jsx} <EditArea app={this} seq={seq} history={this.state.history} />
           </>
           let logs = Object.values(this.state.current_seqs).filter(s => s.id !== seq.id);
           if (logs.length > 0) {
@@ -1266,6 +1343,11 @@ export default App;
 
 async function getStepByID(id: string) {
   return await serverCall(id, '/get_step', true)
+
+}
+
+async function getSeqByID(id: string): Promise<Sequence> {
+  return await serverCall(id, '/get_sequence', true)
 
 }
 /*
