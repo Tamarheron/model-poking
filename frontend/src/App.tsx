@@ -39,7 +39,7 @@ interface Sequence {
   setting: string;
   steps: Step[];
   id: string;
-  parent_ids: string[];
+  parents: string[];
   author: string;
   notes: string;
   show: boolean;
@@ -57,7 +57,7 @@ interface Step {
   environment: string;
   options_list: Option[];
   notes: string;
-  children_ids: string[];
+  children: string[];
   logprob_engine?: EngineName;
   author: string;
   timestamp: string;
@@ -909,9 +909,12 @@ class App extends React.PureComponent<{}, AppState> {
   async componentDidMount() {
     const current_seqs = await getSequenceLogsFromServer(0);
     console.log('current_seqs: ', current_seqs);
-    const top_seq = Object.values(current_seqs)[0];
-    console.log('top_seq: ', top_seq);
-    const history = await this.getHistory(top_seq)
+    let history = <></>;
+    if (Object.keys(current_seqs).length > 0) {
+      const top_seq = Object.values(current_seqs)[0];
+      console.log('top_seq: ', top_seq);
+      history = await this.getHistory(top_seq)
+    }
     this.setState({ current_seqs, history });
 
   }
@@ -977,7 +980,7 @@ class App extends React.PureComponent<{}, AppState> {
       steps: [] as Step[],
       timestamp: new Date().getTime().toString(),
       id: Math.random().toString(),
-      parent_ids: [] as string[],
+      parents: [] as string[],
       author: this.state.author, notes: "", show: true, starred: false, success: "", name: "",
     }
     const new_steps = [this.makeNewStep(new_seq)];
@@ -997,13 +1000,13 @@ class App extends React.PureComponent<{}, AppState> {
   async getHistory(seq: Sequence): Promise<JSX.Element> {
     const history = [] as Sequence[];
     let current_seq = seq
-    // while (current_seq.parent_ids.length > 0) {
-    //   console.log('get_history, current_seq: ', current_seq);
-    //   let parent_step = await getStepByID(current_seq.parent_ids[0])
-    //   current_seq = await getSeqByID(parent_step.sequence_id)
-    //   history.push(current_seq)
-    // }
-    // history.reverse()
+    while (current_seq.parents != null && current_seq.parents.length > 0) {
+      console.log('current_seq: ', current_seq);
+      let parent_step = await getStepByID(current_seq.parents[0])
+      current_seq = await getSeqByID(parent_step.sequence_id)
+      history.push(current_seq)
+    }
+    history.reverse()
     let jsx = <></>
     for (let i = 0; i < history.length; i++) {
       jsx = <> {jsx} <span className={'historylink'}
@@ -1014,14 +1017,14 @@ class App extends React.PureComponent<{}, AppState> {
   }
   async newSeqFromStep(step: Step): Promise<void> {
     const new_seq = this.makeNewSequence();
-    new_seq.parent_ids = [step.id];
+    new_seq.parents = [step.id];
     console.log('new seq from step, new_seq: ', new_seq);
     const action_text = `\nYour current subgoal is: "${getAction(step)}"`
     const start_text = action_text + '\nWhat do you want to do next?';
     new_seq.steps[0].environment = start_text;
     serverSaveSequence(new_seq)
-    const new_children = [...step.children_ids, new_seq.id];
-    this.handleChange(null, new_children, step, 'children_ids', true, false);
+    const new_children = [...step.children, new_seq.id];
+    this.handleChange(null, new_children, step, 'children', true, false);
     this.focusSeq(new_seq);
 
   }
@@ -1048,7 +1051,7 @@ class App extends React.PureComponent<{}, AppState> {
       environment: "",
       options_list: [],
       notes: "",
-      children_ids: [],
+      children: [],
       author: this.state.author,
     }
     const option = this.makeNewOption(new_step, 0);

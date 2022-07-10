@@ -1,4 +1,5 @@
 import string
+from typing import List
 import flask
 import json
 from flask import Flask, send_file
@@ -25,6 +26,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
+
+
+
 
 @dataclass
 class Completion(db.Model):
@@ -55,82 +59,133 @@ class Completion(db.Model):
 
     notes: string
     notes = db.Column(db.String)
-
+@dataclass
+class Test(db.Model):
+    id: int
+    id = db.Column(db.Integer, primary_key=True)
+    text: string
+    text = db.Column(db.String)
 @dataclass
 class NewOption(db.Model):
     id: string
     id = db.Column(db.String, primary_key=True)
+
     text: string
     text = db.Column(db.String)
+    
     position: int
     position = db.Column(db.Integer)
+    
     author: string
     author = db.Column(db.String)
+    
     logprob: float
     logprob = db.Column(db.Float)
+    
     correct: bool
     correct = db.Column(db.Boolean)
+    
     step_id: string
     step_id = db.Column(db.String, db.ForeignKey("step.id"))
     step = db.relationship("Step", back_populates="options_list")
+    
     reasoning: string
     reasoning = db.Column(db.String)
+    
     rating: string
     rating = db.Column(db.String)
+    
     selected: bool
     selected = db.Column(db.Boolean)
+    
     sequence_id: string
     sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
+    
     timestamp:string
     timestamp = db.Column(db.String)
+    
     engine: string
     engine = db.Column(db.String)
+
+
 @dataclass
-class Step(db.Model):
+class Sequence(db.Model):
+    __tablename__ = "sequence"
+    setting: string
+    setting = db.Column(db.String)
+    
+    # step_ids = db.Column(db.ARRAY(db.String, db.ForeignKey("step.id"))
+    steps = db.relationship("Step", back_populates="sequence", uselist=True)
+    
     id: string
     id = db.Column(db.String, primary_key=True)
+    
+    author: string
+    author = db.Column(db.String)
+    
+    notes: string
+    notes = db.Column(db.String)
+    
+    show: bool
+    show = db.Column(db.Boolean)
+    
+    starred : bool
+    starred = db.Column(db.Boolean)
+    
+    success:string
+    success = db.Column(db.String)
+    
+    timestamp:string
+    timestamp = db.Column(db.String)
+    
+    name:string
+    name = db.Column(db.String)
+
+    # parent_ids: List
+    # parent_ids = db.Column(db.String, db.ForeignKey("step.id"))
+    # parents = db.relationship("Step", back_populates="children", foreign_keys=[parent_ids])
+
+children = db.Table('children',
+    db.Column('sequence_id', db.String, db.ForeignKey('sequence.id'), primary_key=True),
+    db.Column('step_id', db.String, db.ForeignKey('step.id'), primary_key=True)
+)
+@dataclass
+class Step(db.Model):
+    __tablename__ = "step"
+    id: string
+    id = db.Column(db.String, primary_key=True)
+
     sequence_id: string
     sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
     sequence = db.relationship("Sequence",  foreign_keys=[sequence_id])
+    
     position: int
     position = db.Column(db.Integer)
+    
     environment: string
     environment = db.Column(db.String)
-    options_list = db.relationship("NewOption", back_populates="step")
+    
+    options_list = db.relationship("NewOption", back_populates="step", lazy="joined")
+    
     notes: string
     notes = db.Column(db.String)
-    children_ids: list
-    children_ids = db.Column(db.String, db.ForeignKey("sequence.id"))
-    children = db.relationship("Sequence", foreign_keys=[children_ids])
+    
+    # children_ids: List
+    # children_ids = db.Column(db.String, db.ForeignKey("sequence.id"))
+    children = db.relationship(
+        "Sequence", secondary=children, 
+        backref=db.backref('parents'),
+    )
     logprob_engine: string
     logprob_engine = db.Column(db.String)
+    
     author: string
     author = db.Column(db.String)
+    
     timestamp:string
     timestamp = db.Column(db.String)
-@dataclass
-class Sequence(db.Model):
-    setting: string
-    setting = db.Column(db.String)
-    steps = db.relationship("Step", back_populates="sequence")
-    id: string
-    id = db.Column(db.String, primary_key=True)
-    parent_ids: list
-    parent_ids = db.relationship("Step", back_populates="children")
-    author: string
-    author = db.Column(db.String)
-    notes: string
-    notes = db.Column(db.String)
-    show: bool
-    show = db.Column(db.Boolean)
-    starred : bool
-    starred = db.Column(db.Boolean)
-    success:string
-    success = db.Column(db.String)
-    timestamp:string
-    timestamp = db.Column(db.String)
-    name:string
-    name = db.Column(db.String)
+
+
 
 
 
@@ -235,16 +290,25 @@ def save_seq():
             print('made option', option)
             db.session.add(option)
             option_objs.append(option)
-        print('about to add step', step)
+
         step['options_list'] = option_objs
         step = Step(**step)
-        print('made step: ', step)
         db.session.add(step)
         step_objs.append(step)
-        print("added step: " + step.id)
+
+    print("added steps " + step.id)
     data['steps'] = step_objs
-    print(data)
-    db.session.add(Sequence(**data))
+    parent_objs = []
+    for parent in data["parents"]:
+        parent = Step.query.filter_by(id=parent).first()
+        parent_objs.append(parent)
+        print("added parents ", parent)
+
+    data['parents'] = parent_objs
+    print("added parents ", data['parents'])
+    sequence = Sequence(**data)
+    print("made sequence ", sequence)
+    db.session.add(sequence)
     db.session.commit()
     return 'saved'
 
@@ -308,6 +372,18 @@ def update_seq(object, field):
                     update_step(step, field)
             steps.append(step_obj)
         value=steps
+    elif field == 'parents':
+        parents=[]
+        for parent in value:
+            parent_obj = db.session.query(Step).filter_by(id=parent).first()
+            parents.append(parent_obj)
+        value=parents
+    elif field == 'children':
+        children=[]
+        for child in value:
+            child_obj = db.session.query(Sequence).filter_by(id=child).first()
+            children.append(child_obj)
+        value=children
     #update fields
     print("updating seq", object, field,)
     print(object[field])
