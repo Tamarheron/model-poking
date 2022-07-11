@@ -14,7 +14,7 @@ root.render(
   <Auth0Provider
     domain='wandering-sky-2847.us.auth0.com'
     clientId='PsieF7RiNvIPSRbH4tB9N3dnrAqfFScm'
-    redirectUri='https://model-poking-2.herokuapp.com/'
+    redirectUri='https://model-poking-2.herokuapp.com/callback'
   >
     <React.StrictMode>
       <App />
