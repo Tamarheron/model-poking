@@ -2,7 +2,7 @@
 import './App.css';
 import React, { useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import { withAuthenticationRequired } from '@auth0/auth0-react';
+import { withAuth0 } from '@auth0/auth0-react';
 
 type WhitespaceStyle = 'normal' | 'pre-line';
 
@@ -1408,8 +1408,8 @@ class App extends React.PureComponent<{}, AppState> {
 //   )
 // }
 
-// export default withAuthenticationRequired(App);
-export default App;
+export default withAuth0(App as any);
+// export default App;
 
 
 async function getStepByID(id: string) {
