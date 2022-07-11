@@ -1408,8 +1408,8 @@ class App extends React.PureComponent<{}, AppState> {
 //   )
 // }
 
-export default withAuthenticationRequired(App);
-
+// export default withAuthenticationRequired(App);
+export default App;
 
 
 async function getStepByID(id: string) {
