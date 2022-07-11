@@ -2,6 +2,7 @@
 import './App.css';
 import React, { useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
+import { withAuthenticationRequired } from '@auth0/auth0-react';
 
 type WhitespaceStyle = 'normal' | 'pre-line';
 
@@ -1407,7 +1408,7 @@ class App extends React.PureComponent<{}, AppState> {
 //   )
 // }
 
-export default App;
+export default withAuthenticationRequired(App);
 
 
 
