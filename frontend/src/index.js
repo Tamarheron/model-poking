@@ -4,14 +4,17 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { Auth0Provider } from "@auth0/auth0-react";
-const webpack = require('webpack');
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+//get enviroment variables from flask server
+
+console.log(window.location.origin);
+
 root.render(
   <Auth0Provider
-    domain={process.env.AUTH0_DOMAIN}
-    clientId={process.env.AUTH0_CLIENT_ID}
-    redirectUri={window.location.origin}
+    domain='wandering-sky-2847.us.auth0.com'
+    clientId='PsieF7RiNvIPSRbH4tB9N3dnrAqfFScm'
+    redirectUri='https://localhost:3000/callback'
   >
     <React.StrictMode>
       <App />
