@@ -14,6 +14,10 @@ from sqlalchemy.engine import Connection
 from dataclasses import dataclass
 import dataclasses
 from sqlalchemy import ForeignKey, orm
+from flask_httpauth import HTTPBasicAuth
+from werkzeug.security import generate_password_hash, check_password_hash
+auth = HTTPBasicAuth()
+
 
 app = Flask(__name__, static_url_path="", static_folder="frontend/build")
 
@@ -237,10 +241,20 @@ def get_action_options():
     print("completion: ", completions)
     return json.dumps({"option_texts": completions})
 
+users = {
+    'user': 'alignment'
+}
+@auth.verify_password
+def verify_password(username, password):
+    if username in users and users[username] == password:
+        return username
 
 @app.route("/")
+@auth.login_required
 def model_poking():
     return send_file(__file__[:-9] + "frontend/build/index.html")
+
+
 
 
 @app.route("/get_logprobs", methods=["POST"])
