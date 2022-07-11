@@ -87,7 +87,7 @@ class NewOption(db.Model):
     
     step_id: string
     step_id = db.Column(db.String, db.ForeignKey("step.id"))
-    step = db.relationship("Step", back_populates="options_list")
+    step = db.relationship("Step", back_populates="options_list",lazy=False)
     
     reasoning: string
     reasoning = db.Column(db.String)
@@ -115,7 +115,7 @@ class Sequence(db.Model):
     setting = db.Column(db.String)
     
     # step_ids = db.Column(db.ARRAY(db.String, db.ForeignKey("step.id"))
-    steps = db.relationship("Step", back_populates="sequence", uselist=True)
+    steps = db.relationship("Step", back_populates="sequence", uselist=True, lazy=False)
     
     id: string
     id = db.Column(db.String, primary_key=True)
@@ -160,7 +160,7 @@ class Step(db.Model):
     environment: string
     environment = db.Column(db.String)
     
-    options_list = db.relationship("NewOption", back_populates="step", lazy="joined")
+    options_list = db.relationship("NewOption", back_populates="step", lazy="joined", uselist=True)
     
     notes: string
     notes = db.Column(db.String)
@@ -276,19 +276,8 @@ def save_seq():
     data = flask.request.get_json()
     step_objs = []
     for step in data["steps"]:
-        option_objs = []
-        for option in step["options_list"]:
-            option = NewOption(**option)
-            print('made option', option)
-            db.session.add(option)
-            option_objs.append(option)
-
-        step['options_list'] = option_objs
-        step = Step(**step)
-        db.session.add(step)
-        step_objs.append(step)
-
-    print("added steps " + step.id)
+        step_objs.append(update_step(step))
+        print("added steps " + step['id'])
     data['steps'] = step_objs
     sequence = Sequence(**data)
     print("made sequence ", sequence)
@@ -322,7 +311,7 @@ def get_step():
     print("get_step")
     data = flask.request.get_json()
     id = data
-    step = Step.query.filter_by(id=id).first()
+    step = Step.query.options(orm.joinedload(Step.options_list)).filter_by(id=id).first()
     return json.dumps(dataclasses.asdict(step))
 
 @app.route("/get_sequence", methods=["POST"])
@@ -330,30 +319,45 @@ def get_sequence():
     print("get_sequence")
     data = flask.request.get_json()
     id = data
-    sequence = Sequence.query.filter_by(id=id).first()
+    sequence = Sequence.query.options(orm.joinedload(Sequence.steps)).filter_by(id=id).first()
     return json.dumps(seq_to_dict(sequence))
 
+def update_option(option:NewOption):
+    option_obj = db.session.query(NewOption).filter_by(id=option['id']).first()
+    if option_obj is None:
+        option_obj = NewOption(**option)
+        db.session.add(option_obj)
+    else:
+        #update option
+        for key, value in option.items():
+            setattr(option_obj, key, value)
+    return option_obj
 
-def update_seq(object, field):
+def update_step(step:Step):
+    options_list = []
+    for option in step['options_list']:
+        option_obj = update_option(option)
+        options_list.append(option_obj)
+    step['options_list'] = options_list
+
+    step_obj = db.session.query(Step).filter_by(id=step['id']).first()
+    if step_obj is None:
+        step_obj = Step(**step)
+        db.session.add(step_obj)
+    else:
+        #update step
+        for key, value in step.items():
+            setattr(step_obj, key, value)
+    return step_obj
+
+def update_seq_field(object, field):
     print("update_seq")
     seq = db.session.query(Sequence).filter_by(id=object['id']).first()
     value = object[field]
     if field == 'steps':
         steps=[]
         for step in value:
-            step_obj = db.session.query(Step).filter_by(id=step['id']).first()
-            if step_obj is None:
-                new_options = []
-                for option in step['options_list']:
-                    new_option = NewOption(**option)    
-                    new_options.append(new_option)
-                    db.session.add(new_option)
-                step['options_list'] = new_options
-                step_obj = Step(**step)
-                db.session.add(step_obj)
-            else:
-                for field in step.keys():
-                    update_step(step, field)
+            step_obj = update_step(step)
             steps.append(step_obj)
         value=steps
     #update fields
@@ -362,22 +366,13 @@ def update_seq(object, field):
     setattr(seq, field, value)
     db.session.commit()
 
-def update_step(object, field):
+def update_step_field(object, field):
     step = db.session.query(Step).filter_by(id=object['id']).first()
     value = object[field]
     if field == 'options_list':
         new_options = []
         for option in value:
-            option_obj = db.session.query(NewOption).filter_by(id=option['id']).first()
-            if option_obj is None:
-                option_obj = NewOption(**option)
-                db.session.add(option_obj)
-            else:
-                #update option
-                for key, value in option.items():
-                    setattr(option_obj, key, value)
-
-
+            option_obj = update_option(option)
             new_options.append(option_obj)
         value = new_options
         #delete old options
@@ -392,9 +387,10 @@ def update_step(object, field):
     setattr(step, field, value)
     db.session.commit()
 
-def update_option(object, field):
-    option = db.session.query(NewOption).filter_by(id=object['id']).first()
-    print("updating option", object, field,)
+def update_option_field(object, field):
+    print("update_option", object['id'])
+    option = update_option(object)
+    print("updating option", object, field, option)
     print(option)
     if field == 'text' and object['text'] == '':
         print("deleting option"+'\n\n*******')
@@ -413,11 +409,11 @@ def update():
     data = flask.request.get_json()
     print(data)
     if data['which'] == "seq":
-        update_seq(data['object'], data['field'])
+        update_seq_field(data['object'], data['field'])
     elif data['which'] == "step":
-        update_step(data['object'], data['field'])
+        update_step_field(data['object'], data['field'])
     else:
-        update_option(data['object'], data['field'])
+        update_option_field(data['object'], data['field'])
     return "saved"
 
 
@@ -441,7 +437,7 @@ def get_sequence_logs():
 
     print("finished get_sequence_logs, took: ", time.time() - start_time)
 
-    print(f'dict_list: {dict_list}')
+    # print(f'dict_list: {dict_list}')
     return json.dumps(dict_list)
 
 
@@ -454,7 +450,6 @@ def step_to_dict(step):
 
 def seq_to_dict(example):
     print("seq_to_dict")
-    print(example)
     d = dataclasses.asdict(example)
     d['steps'] = [step_to_dict(x) for x in example.steps]
     return d
