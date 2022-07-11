@@ -14,9 +14,12 @@ from sqlalchemy.engine import Connection
 from dataclasses import dataclass
 import dataclasses
 from sqlalchemy import ForeignKey, orm
+from flask_heroku_auth import HerokuAuth
 
+auth = HerokuAuth()
 
 app = Flask(__name__, static_url_path="", static_folder="frontend/build")
+HerokuAuth(app)
 
 database_url = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
@@ -240,6 +243,7 @@ def get_action_options():
 
 
 @app.route("/")
+@auth.oauth
 def model_poking():
     return send_file(__file__[:-9] + "frontend/build/index.html")
 
