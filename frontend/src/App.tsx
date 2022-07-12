@@ -1516,8 +1516,7 @@ class App extends React.PureComponent<{}, AppState> {
 //   )
 // }
 
-export default withAuth0(App as any);
-// export default App;
+export default App;
 
 
 
