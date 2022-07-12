@@ -85,7 +85,7 @@ td.steprow-cell {
 
 div.seqlog {
   display: flex;
-
+  font-size: small;
   margin-bottom: 5px;
 
 }
