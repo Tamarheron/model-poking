@@ -3,6 +3,7 @@ import './App.css';
 import React, { useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import Select, { SingleValue, MultiValue } from 'react-select';
+// import 'bootstrap/dist/css/bootstrap.min.css';
 
 type WhitespaceStyle = 'normal' | 'pre-line';
 
@@ -276,6 +277,7 @@ const StepRow = (props: { step: Step, app: App }) => {
   for (let id of parent_seq_ids) {
     delete all_seqs[id];
   }
+  delete all_seqs[step.sequence_id];
   let seq_names = Object.values(all_seqs).map(s => { return { label: s.name, value: s.id } })
 
 
@@ -579,8 +581,8 @@ const Seq = (props: {
   let example: React.ReactNode = <></>;
 
   if (seq['show'] === true) {
-    const rows_jsx = seq.steps.map((step, _) => {
-      return <StepRow key={Math.random()} step={step} app={app} />
+    const rows_jsx = seq.steps.map((step, i) => {
+      return <StepRow key={i} step={step} app={app} />
     })
 
     const info_jsx = SeqInfo({ seq, app });
