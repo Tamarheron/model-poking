@@ -2,7 +2,6 @@
 import './App.css';
 import React, { useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import { withAuth0 } from '@auth0/auth0-react';
 
 type WhitespaceStyle = 'normal' | 'pre-line';
 
