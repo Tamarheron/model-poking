@@ -1,6 +1,6 @@
 
 import './App.css';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import Select, { SingleValue, MultiValue } from 'react-select';
 // import 'bootstrap/dist/css/bootstrap.min.css';
@@ -1005,11 +1005,13 @@ function EditArea(props: { app: App, seq: Sequence, history: Sequence[] }) {
 
 
 }
+type SeqTree = { seq: Sequence, children: SeqTree[] }
 
 
-const BulletTree = (props: { app: App }) => {
-  const { app } = props;
-  let top_level_list = []
+
+const makeTree = async (app: App) => {
+
+  let top_level_list = [] as SeqTree[];
   let all_seqs = app.state.current_seqs;
   let seq_list = Object.values(app.state.current_seqs);
   console.log('seq_list: ' + seq_list);
@@ -1018,23 +1020,25 @@ const BulletTree = (props: { app: App }) => {
     let seq = seq_list[i]
     console.log('parent ids', seq.parent_ids);
     if (seq.parent_ids === "") {
-      top_level_list.push({ seq: seq, children: [], jsx: null });
+      let seq_node = { seq: seq, children: [] } as SeqTree;
+      top_level_list.push(seq_node);
     } else {
       let valid_parent = false;
       let parent_list = seq.parent_ids.split(' ')
       for (let j = 0; j < parent_list.length; j++) {
-        let parent_id = parent_list[j];
-        let parent_seq = all_seqs[parent_id];
-        if (parent_seq !== undefined) {
+        const parent_step_id = parent_list[j];
+        const parent_step = await getStepByID(parent_step_id);
+        const parent_seq_id = parent_step.sequence_id;
+        if (all_seqs.hasOwnProperty(parent_seq_id)) {
           valid_parent = true;
         }
       }
       if (!valid_parent) {
-        top_level_list.push({ seq: seq, children: [], jsx: null });
+        top_level_list.push({ seq: seq, children: [] });
       }
     }
   }
-  function addChildren(parent: Sequence): any {
+  function addChildren(parent: Sequence): SeqTree[] {
     let children = [];
     let steps = parent.steps;
     for (let j = 0; j < steps.length; j++) {
@@ -1058,6 +1062,18 @@ const BulletTree = (props: { app: App }) => {
     top_level_list[i].children = addChildren(seq);
   }
   console.log('top', top_level_list)
+  return top_level_list;
+}
+
+const BulletTree = (props: { app: App }) => {
+  const { app } = props;
+  const [tree, setTree] = useState<SeqTree[]>([])
+  useEffect(() => {
+    makeTree(app).then((tree) => {
+      setTree(tree);
+    })
+  }, [])
+
 
   function getJSX(seq: Sequence, children: any[]): JSX.Element {
     let jsx = <ChildLink app={app} seq={seq} key={Math.random()} />;
@@ -1075,7 +1091,7 @@ const BulletTree = (props: { app: App }) => {
       return <li>{jsx}</li>;
     }
   }
-  let jsx = <ul>{top_level_list.map((item) => getJSX(item.seq, item.children))}</ul>;
+  let jsx = <ul>{tree.map((item) => getJSX(item.seq, item.children))}</ul>;
   return jsx;
 
 }
