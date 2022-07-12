@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { Auth0Provider } from "@auth0/auth0-react";
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 //get enviroment variables from flask server
@@ -11,15 +10,10 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 console.log(window.location.origin);
 
 root.render(
-  <Auth0Provider
-    domain='wandering-sky-2847.us.auth0.com'
-    clientId='PsieF7RiNvIPSRbH4tB9N3dnrAqfFScm'
-    redirectUri={window.location.origin}
-  >
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  </Auth0Provider>,
+
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
 
 // If you want to start measuring performance in your app, pass a function
