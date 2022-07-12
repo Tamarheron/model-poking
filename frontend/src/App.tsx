@@ -362,7 +362,7 @@ const StepRow = (props: { step: Step, app: App }) => {
                 {getAction(step)}
               </td>
               <td className='env_act_buttons' >
-                {/* <div className='env_act_buttons' >
+                <div className='env_act_buttons' >
 
                   <div className='child_links'>
                     {child_links}
@@ -371,13 +371,13 @@ const StepRow = (props: { step: Step, app: App }) => {
 
                     <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
 
-                  </div> */}
-                <div className='select_link'>
+                  </div>
+                  <div className='select_link'>
 
-                  {select_jsx}
+                    {select_jsx}
+                  </div>
+
                 </div>
-
-                {/* </div> */}
               </td>
             </tr>
             <tr>
