@@ -2,6 +2,7 @@
 import './App.css';
 import React, { useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
+import Select, { SingleValue, MultiValue } from 'react-select';
 
 type WhitespaceStyle = 'normal' | 'pre-line';
 
@@ -255,10 +256,10 @@ const StepRow = (props: { step: Step, app: App }) => {
   const [waiting, setWaiting] = useState(false);
   console.log('step row', step);
   const children_ids = step.children_ids.split(' ')
-  let child_buttons = <></> as React.ReactNode;
+  let child_links = <></> as React.ReactNode;
   if (children_ids.length > 0) {
     console.log('children_ids', children_ids);
-    child_buttons = children_ids.map((id, _) => {
+    child_links = children_ids.map((id, _) => {
       let seq = app.getSeq(id);
       if (seq) {
         console.log('seq', seq.name);
@@ -269,7 +270,31 @@ const StepRow = (props: { step: Step, app: App }) => {
     }
     )
   }
-  console.log(child_buttons)
+  let all_seqs = { ...app.state.current_seqs };
+  // remove parents from all_seqs
+  let parent_seq_ids = app.state.history.map(seq => seq.id);
+  for (let id of parent_seq_ids) {
+    delete all_seqs[id];
+  }
+  let seq_names = Object.values(all_seqs).map(s => { return { label: s.name, value: s.id } })
+
+
+  seq_names.sort((a, b) => a.label > b.label ? 1 : -1)
+
+  let select_jsx = <Select options={seq_names} isMulti={true} onChange={(selected) => {
+    handleSelectChange(selected, app, step);
+  }} placeholder="link child" className='select_link' />;
+
+  const handleSelectChange = (selected: MultiValue<{ label: string, value: string }>,
+    app: App, step: Step) => {
+    //add sequence id to step.children_ids
+    if (selected !== null) {
+      let new_children_ids = step.children_ids + ' ' + selected.map(s => s.value).join(' ');
+      app.handleChange(null, new_children_ids, step, 'children_ids', true)
+    }
+  }
+
+  console.log(child_links)
   const env_props = {
     other_props: {
       maxRows: 10,
@@ -307,13 +332,23 @@ const StepRow = (props: { step: Step, app: App }) => {
               <td className='env_act_labels'>
                 Env:
               </td>
-              <td colSpan={1} className='env'>
+              <td className='env'>
                 <EditableTextField {...env_props} {...textarea_props} />
 
               </td>
-              <td className='empty'></td>
-              <td className='env_act_buttons' colSpan={2}>
-                <button onClick={() => app.getCompletion(step)}>Completion</button>
+              <td className='env_act_buttons' >
+                <div className='env_act_buttons' >
+
+                  <div className='env_act_buttons' >
+
+                    <button onClick={() => app.getCompletion(step)}>Completion</button>
+
+                  </div>
+                  <div className='option_toggle'>
+                    <button onClick={() => setShowOptions(!show_options)} className='option_toggle'>{show_options ? '-' : '+'}</button>
+
+                  </div>
+                </div>
               </td>
 
             </tr>
@@ -324,17 +359,23 @@ const StepRow = (props: { step: Step, app: App }) => {
               <td className='action_text'>
                 {getAction(step)}
               </td>
-              <td className='child_buttons'>
-                {child_buttons}
-              </td>
-              <td className='env_act_buttons'>
+              <td className='env_act_buttons' >
+                <div className='env_act_buttons' >
 
-                <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
+                  <div className='child_links'>
+                    {child_links}
+                  </div>
+                  <div className='env_act_buttons'>
 
-              </td>
-              <td className='option_toggle'>
-                <button onClick={() => setShowOptions(!show_options)} className='option_toggle'>{show_options ? '-' : '+'}</button>
+                    <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
 
+                  </div>
+                  <div className='select_link'>
+
+                    {select_jsx}
+                  </div>
+
+                </div>
               </td>
             </tr>
             <tr>
@@ -1350,6 +1391,11 @@ class App extends React.PureComponent<{}, AppState> {
   getSeq(sequence_id: string) {
     return this.state.current_seqs[sequence_id];
   }
+
+  getSeqByName(seq_name: string) {
+    return Object.values(this.state.current_seqs).filter(seq => seq.name === seq_name)[0];
+  }
+
 
   handleChange(
     e: React.MouseEvent<any> | React.ChangeEvent<any> | React.FocusEvent<any> | null,
