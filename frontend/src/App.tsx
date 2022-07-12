@@ -362,7 +362,7 @@ const StepRow = (props: { step: Step, app: App }) => {
                 {getAction(step)}
               </td>
               <td className='env_act_buttons' >
-                <div className='env_act_buttons' >
+                {/* <div className='env_act_buttons' >
 
                   <div className='child_links'>
                     {child_links}
@@ -371,13 +371,13 @@ const StepRow = (props: { step: Step, app: App }) => {
 
                     <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
 
-                  </div>
-                  <div className='select_link'>
+                  </div> */}
+                <div className='select_link'>
 
-                    {select_jsx}
-                  </div>
-
+                  {select_jsx}
                 </div>
+
+                {/* </div> */}
               </td>
             </tr>
             <tr>
@@ -1015,10 +1015,23 @@ const BulletTree = (props: { app: App }) => {
   console.log('seq_list: ' + seq_list);
 
   for (let i = 0; i < seq_list.length; i++) {
-    let seq = seq_list[i];
+    let seq = seq_list[i]
     console.log('parent ids', seq.parent_ids);
     if (seq.parent_ids === "") {
       top_level_list.push({ seq: seq, children: [], jsx: null });
+    } else {
+      let valid_parent = false;
+      let parent_list = seq.parent_ids.split(' ')
+      for (let j = 0; j < parent_list.length; j++) {
+        let parent_id = parent_list[j];
+        let parent_seq = all_seqs[parent_id];
+        if (parent_seq !== undefined) {
+          valid_parent = true;
+        }
+      }
+      if (!valid_parent) {
+        top_level_list.push({ seq: seq, children: [], jsx: null });
+      }
     }
   }
   function addChildren(parent: Sequence): any {

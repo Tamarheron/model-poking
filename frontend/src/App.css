@@ -102,21 +102,13 @@ div.env_act_buttons {
   flex-direction: row;
   border: 0px;
   justify-content: flex-end;
-  width: max-content;
-  height: min-content;
+
 }
 
 td.env_act_buttons {
   border: 0px;
 }
 
-
-div.child_links {
-  display: inline-flex;
-  flex-direction: row;
-  width: max-content;
-
-}
 
 
 .env_act_labels {
