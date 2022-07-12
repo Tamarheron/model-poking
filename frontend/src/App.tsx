@@ -108,6 +108,10 @@ async function apiCall(
   const response = await fetch('/submit_prompt', args);
   return await response.json();
 }
+async function getStepByID(id: string) {
+  return await serverCall(id, '/get_step', true)
+
+}
 
 const resize = (textarea: HTMLTextAreaElement) => {
   textarea.style.height = 'inherit';
@@ -296,7 +300,7 @@ const StepRow = (props: { step: Step, app: App }) => {
   }
   return (<>
     <tr className='steprow'>
-      <td className='steprow-cell' colSpan={4}>
+      <td className='steprow-cell' colSpan={3}>
         <table className='steprow-table'>
           <tbody>
             <tr className='steprow-row'>
@@ -307,27 +311,34 @@ const StepRow = (props: { step: Step, app: App }) => {
                 <EditableTextField {...env_props} {...textarea_props} />
 
               </td>
-              <td className='env_act_buttons'>
+              <td className='empty'></td>
+              <td className='env_act_buttons' colSpan={2}>
                 <button onClick={() => app.getCompletion(step)}>Completion</button>
               </td>
+
             </tr>
-            <tr>
+            <tr className='steprow-row'>
               <td className='env_act_labels'>
                 Action:
               </td>
               <td className='action_text'>
                 {getAction(step)}
               </td>
-              <td className='env_act_buttons'>
+              <td className='child_buttons'>
                 {child_buttons}
+              </td>
+              <td className='env_act_buttons'>
+
                 <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
+
+              </td>
+              <td className='option_toggle'>
+                <button onClick={() => setShowOptions(!show_options)} className='option_toggle'>{show_options ? '-' : '+'}</button>
+
               </td>
             </tr>
             <tr>
               {options_body}
-            </tr>
-            <tr>
-              <td className='show_options' colSpan={5}><button onClick={() => setShowOptions(!show_options)}>{show_options ? 'Hide' : 'Show'} Options</button></td>
             </tr>
           </tbody>
         </table>
@@ -956,8 +967,8 @@ function EditArea(props: { app: App, seq: Sequence, history: Sequence[] }) {
 const BulletTree = (props: { app: App }) => {
   const { app } = props;
   let top_level_list = []
-  let all_seqs = app.state.all_seqs;
-  let seq_list = Object.values(app.state.all_seqs);
+  let all_seqs = app.state.current_seqs;
+  let seq_list = Object.values(app.state.current_seqs);
   console.log('seq_list: ' + seq_list);
 
   for (let i = 0; i < seq_list.length; i++) {
@@ -1021,7 +1032,6 @@ const BulletTree = (props: { app: App }) => {
 
 interface AppState {
   current_seqs: { [id: string]: Sequence };
-  all_seqs: { [id: string]: Sequence };
   all_steps: { [id: string]: Step };
   temp: number;
   n_tokens: number;
@@ -1039,7 +1049,6 @@ class App extends React.PureComponent<{}, AppState> {
     super(props)
     this.state = {
       current_seqs: {},
-      all_seqs: {},
       all_steps: {},
       temp: 0,
       n_tokens: 50,
@@ -1055,11 +1064,10 @@ class App extends React.PureComponent<{}, AppState> {
 
   async componentDidMount() {
     const current_seqs = (await getSequenceLogsFromServer(0));
-    const all_seqs = (await getSequenceLogsFromServer(0));
     const all_steps = (await getStepLogsFromServer(0));
     console.log('current_seqs: ', current_seqs);
     let history = [] as Sequence[];
-    this.setState({ current_seqs, history, all_seqs, all_steps });
+    this.setState({ current_seqs, history, all_steps });
     if (Object.keys(current_seqs).length > 0) {
       const top_seq = Object.values(current_seqs)[0];
       console.log('top_seq: ', top_seq);
@@ -1073,14 +1081,16 @@ class App extends React.PureComponent<{}, AppState> {
     const history = await this.getHistory(seq, this)
     this.setState({ current_seqs: { [seq.id]: seq, ...this.state.current_seqs }, history })
   }
-  getBefore(step: Step, sequence: Sequence | null = null) {
+  async getBefore(step: Step, sequence: Sequence | null = null) {
     if (sequence === null) {
       //look up sequence
       sequence = this.getSeq(step.sequence_id);
     }
     var before = this.state.setting;
-    for (let i = 0; i < step.position; i++) {
-      before += '\n' + sequence.steps[i].environment + '\n> Action:' + getAction(sequence.steps[i]);
+    if (sequence !== null) {
+      for (let i = 0; i < step.position; i++) {
+        before += '\n' + sequence.steps[i].environment + '\n> Action:' + getAction(sequence.steps[i]);
+      }
     }
     return before;
   }
@@ -1091,23 +1101,26 @@ class App extends React.PureComponent<{}, AppState> {
       sequence = this.getSeq(step.sequence_id);
     }
     var before = ''
-    if (setting) {
-      before = sequence.setting;
-    }
+    if (sequence !== null) {
 
-    for (let i = 0; i <= step.position; i++) {
-      let step_i = sequence.steps[i];
-      let action = ''
-      let environment = ''
-      if (step_i !== undefined) {
-        action = getAction(step_i)
-        environment = step_i.environment
+      if (setting) {
+        before = sequence.setting;
       }
-      let text = `\n${environment}`
-      if (action !== '') {
-        text += `\n> Action:${action}`
+
+      for (let i = 0; i <= step.position; i++) {
+        let step_i = sequence.steps[i];
+        let action = ''
+        let environment = ''
+        if (step_i !== undefined) {
+          action = getAction(step_i)
+          environment = step_i.environment
+        }
+        let text = `\n${environment}`
+        if (action !== '') {
+          text += `\n> Action:${action}`
+        }
+        before = `${before}${text}`
       }
-      before = `${before}${text}`
     }
     return before;
   }
@@ -1164,12 +1177,12 @@ class App extends React.PureComponent<{}, AppState> {
     let current_seq = seq
     while (current_seq.parent_ids != null && current_seq.parent_ids.length > 0) {
       console.log('current_seq: ', current_seq);
-      let parent_step = app.getStep(current_seq.parent_ids.split(' ')[0])
+      let parent_step = await getStepByID(current_seq.parent_ids.split(' ')[0])
       if (parent_step == null) {
         break;
       }
       console.log('parent_step: ', parent_step);
-      current_seq = app.getSeq(parent_step.sequence_id)
+      current_seq = this.getSeq(parent_step.sequence_id)
       if (current_seq == null) {
         break;
       }
@@ -1335,10 +1348,7 @@ class App extends React.PureComponent<{}, AppState> {
   }
 
   getSeq(sequence_id: string) {
-    return this.state.all_seqs[sequence_id];
-  }
-  getStep(step_id: string) {
-    return this.state.all_steps[step_id];
+    return this.state.current_seqs[sequence_id];
   }
 
   handleChange(
@@ -1442,27 +1452,27 @@ class App extends React.PureComponent<{}, AppState> {
   }
 
 
-  async handleChangeMode() {
-    if (this.state.mode === 'normal') {
-      const all = await getSequenceLogsFromServer(0);
-      console.log('all: ', all);
-      this.setState({ current_seqs: all, all_seqs: all });
-    }
-    this.setState({ mode: this.state.mode === 'normal' ? 'browse' : 'normal' });
-  }
+  // async handleChangeMode() {
+  //   if (this.state.mode === 'normal') {
+  //     const all = await getSequenceLogsFromServer(0);
+  //     console.log('all: ', all);
+  //     this.setState({ current_seqs: all });
+  //   }
+  //   this.setState({ mode: this.state.mode === 'normal' ? 'browse' : 'normal' });
+  // }
 
 
   render() {
-    const switch_page_button = (
-      <button onClick={() => this.handleChangeMode()}>
-        {this.state.mode === 'normal' ? 'Browse' : 'Normal'}
-      </button>
-    );
+    // const switch_page_button = (
+    //   <button onClick={() => this.handleChangeMode()}>
+    //     {this.state.mode === 'normal' ? 'Browse' : 'Normal'}
+    //   </button>
+    // );
     let jsx = <div>Loading...</div>
     if (this.state !== null) {
       jsx = <div>
         <button onClick={() => this.makeAndSaveNewSequence()}>New Sequence</button>
-        {switch_page_button}
+        {/* {switch_page_button} */}
       </div>
 
       if (Object.values(this.state.current_seqs).length > 0) {

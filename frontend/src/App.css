@@ -97,29 +97,56 @@ div.seq_div {
   border-radius: 3px;
 }
 
-td.envact {
-  border-top: #282c34 2px solid;
+td.env_act_buttons {
+  text-align: right;
+  width: 0%;
 }
+
+tr.steprow-row {}
 
 .env_act_labels {
   width: 0%;
-  border: 0px solid black;
+  border: 0px;
+}
+
+td.empty {
+  border: 0px;
+  width: 0%;
 }
 
 .env_act_buttons {
-  width: 0%;
   border: 0px solid black;
+  display: inline;
+  width: 100%;
 }
 
 td.env {
   border: 0px solid black;
+  width: 100%;
+}
 
+
+
+td.child_buttons {
+  width: 0%;
+  border: 0px;
 }
 
 div.delete_step {
   width: 20%;
   margin-right: 20%;
 }
+
+td.option_toggle {
+  width: 0%;
+  border: 0px;
+}
+
+button.option_toggle {
+  background-color: #556480;
+  color: white;
+}
+
 
 
 textarea {
@@ -293,7 +320,7 @@ div.childlink {
 
 
 td.action_text {
-  border: 1px solid #ccc;
+  border: 1px solid rgb(231, 235, 239);
   background-color: rgb(247, 251, 255);
   border-radius: 3px;
   margin-bottom: 4px;
