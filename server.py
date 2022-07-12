@@ -453,6 +453,27 @@ def get_sequence_logs():
     # print(f'dict_list: {dict_list}')
     return json.dumps(dict_list)
 
+@app.route("/get_step_logs")
+def get_step_logs():
+    print("get_step_logs")
+    start_time = time.time()
+    n = flask.request.args.get("n", 15)
+    stmt = (
+        db.session.query(Step)
+        .options(orm.joinedload(Step.options_list))
+        .filter()
+        .all()
+    )
+    print("finished db query, took time: ", time.time() - start_time)
+    start_time = time.time()
+    dict_list = [step_to_dict(x) for x in stmt]
+    dict_list = dict_list[-int(n) :]
+
+    print("finished get_step_logs, took: ", time.time() - start_time)
+
+    # print(f'dict_list: {dict_list}')
+    return json.dumps(dict_list)
+
 
 def step_to_dict(step):
     print("step_to_dict")

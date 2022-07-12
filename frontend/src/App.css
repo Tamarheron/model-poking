@@ -66,6 +66,10 @@ table {
 
 }
 
+td.notes {
+  width: 100%;
+}
+
 td.show_options {
   width: 100%;
   text-align: center;
@@ -109,6 +113,7 @@ td.envact {
 
 td.env {
   border: 0px solid black;
+
 }
 
 div.delete_step {
@@ -271,10 +276,19 @@ div.historylink {
   width: fit-content;
 }
 
-span.historylink {
+span.link {
   color: rgb(83, 85, 203);
   text-decoration: underline;
   margin-right: 5px;
+}
+
+span.child {
+  font-size: small;
+  display: inline;
+}
+
+div.childlink {
+  display: inline-flex;
 }
 
 

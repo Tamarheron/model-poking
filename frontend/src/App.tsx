@@ -205,15 +205,25 @@ async function getSequenceLogsFromServer(n: number): Promise<{ [id: string]: Seq
   let logs = await raw.json();
   logs = Object.values(logs) as Sequence[];
   logs.sort((a: Sequence, b: Sequence) => a.timestamp > b.timestamp ? -1 : 1);
-  console.log('got sequence logs', logs);
   const current_seqs: { [id: string]: Sequence } = {};
   for (let seq of logs) {
     current_seqs[seq.id] = seq;
   }
   return current_seqs;
 }
+
+async function getStepLogsFromServer(n: number): Promise<{ [id: string]: Step }> {
+  const raw = await fetch('/get_step_logs?n=' + n);
+  let logs = await raw.json();
+  logs = Object.values(logs) as Step[];
+  const current_seqs: { [id: string]: Step } = {};
+  for (let seq of logs) {
+    current_seqs[seq.id] = seq;
+  }
+  return current_seqs;
+}
+
 function getAction(step: Step) {
-  console.log('getAction', step);
   //action is selected option
   const options = step.options_list;
   const selected = options.filter(o => o.selected);
@@ -221,6 +231,15 @@ function getAction(step: Step) {
     return '';
   }
   return selected[0].text;
+}
+
+const ChildLink = (props: { seq: Sequence, app: App }) => {
+  const { seq, app } = props;
+  return <div className='childlink'
+    onClick={() => {
+      app.focusSeq(seq);
+    }
+    }><span className='child link'>{seq.name}</span></div>
 }
 const StepRow = (props: { step: Step, app: App }) => {
   const { step, app } = props;
@@ -231,9 +250,23 @@ const StepRow = (props: { step: Step, app: App }) => {
   }
   const [show_options, setShowOptions] = useState(false);
   const [waiting, setWaiting] = useState(false);
-
-
-
+  console.log('step row', step);
+  const children_ids = step.children_ids.split(' ')
+  let child_buttons = <></> as React.ReactNode;
+  if (children_ids.length > 0) {
+    console.log('children_ids', children_ids);
+    child_buttons = children_ids.map((id, _) => {
+      let seq = app.getSeq(id);
+      if (seq) {
+        console.log('seq', seq.name);
+        return <ChildLink key={Math.random()} seq={seq} app={app} />
+      } else {
+        return null;
+      }
+    }
+    )
+  }
+  console.log(child_buttons)
   const env_props = {
     other_props: {
       maxRows: 10,
@@ -257,6 +290,7 @@ const StepRow = (props: { step: Step, app: App }) => {
         </td>
       </tr>
     </tbody>
+
   </table></td>
   if (!show_options) {
     options_body = <></>
@@ -286,6 +320,7 @@ const StepRow = (props: { step: Step, app: App }) => {
                 {getAction(step)}
               </td>
               <td className='env_act_buttons'>
+                {child_buttons}
                 <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
               </td>
             </tr>
@@ -396,27 +431,24 @@ const SeqLog = (props: { seq: Sequence, app: App }): JSX.Element => {
         <tbody>
           <SeqInfo {...props} />
           <tr>
-            <td className={'log_text'}>
+            <td className={'log_text'} colSpan={2}>
               {text}
             </td>
           </tr>
-
         </tbody>
+        <tfoot>
+          <NotesRow seq={seq} app={app} logs={true} />
+        </tfoot>
       </table>
     </div>
   )
 }
 const SeqInfo = (props: { seq: Sequence, app: App }): JSX.Element => {
   const { seq, app } = props;
-  const notes = seq.notes || "";
+
   const name = seq.name || "";
   const author = seq.author || "";
 
-  const notes_props = {
-    className: "reasoning",
-    key: seq.id + ' notes',
-    rows: 1,
-  }
   const name_props = {
     key: seq.id + ' name',
     rows: 1,
@@ -428,9 +460,6 @@ const SeqInfo = (props: { seq: Sequence, app: App }): JSX.Element => {
     rows: 1,
   }
 
-  // autosize is too slow for browse mode
-  let notes_jsx = <EditableTextField field="notes" object={seq}
-    which="seq" app={app} other_props={notes_props} />;
 
   // let capabilities_jsx = <EditableTextField field="capabilities" object={seq}
   //   which="seq" app={app} other_props={capabilities_props} />;
@@ -487,7 +516,7 @@ const HistoryLink = (props: {
 }
 ): JSX.Element => {
   let { app, hist } = props;
-  return <div className={'historylink'} onClick={() => app.focusSeq(hist)}>{' > '}<span className='historylink'>{hist.name}</span></div>
+  return <div className={'historylink'} onClick={() => app.focusSeq(hist)}>{' > '}<span className='history link'>{hist.name}</span></div>
 }
 
 const Seq = (props: {
@@ -500,16 +529,12 @@ const Seq = (props: {
 
   if (seq['show'] === true) {
     const rows_jsx = seq.steps.map((step, _) => {
-      return <StepRow key={`${seq.id} ${step.id}`} step={step} app={app} />
+      return <StepRow key={Math.random()} step={step} app={app} />
     })
 
     const info_jsx = SeqInfo({ seq, app });
 
-    const notes_props = {
-      className: "notes",
-      key: seq.id + ' notes',
-      rows: 1,
-    }
+
     let history_elements = [] as React.ReactNode[];
     let history_jsx = <></>;
     if (history.length > 0) {
@@ -521,10 +546,6 @@ const Seq = (props: {
     }
 
 
-    // autosize is too slow for browse mode
-    let notes_jsx = <EditableTextField field="notes" object={seq}
-      which="seq" app={app} other_props={notes_props} />
-
     example = <div className="seq_div" >
       <table className="seq">
         <thead>
@@ -535,19 +556,7 @@ const Seq = (props: {
           {rows_jsx}
         </tbody>
         <tfoot>
-          <tr>
-            <td className="notes_labels">
-              Notes:
-            </td>
-            <td colSpan={1} className='notes'>
-              {notes_jsx}
-            </td>
-            <td className="dataset_log_buttons_td" colSpan={1}>
-              <div className="dataset_log_buttons">
-                <button className="dataset_log_button" onClick={() => app.addNewStep(seq)}>New step</button>
-              </div>
-            </td>
-          </tr>
+          <NotesRow seq={seq} app={app} />
         </tfoot>
       </table>
     </div>;
@@ -556,6 +565,34 @@ const Seq = (props: {
   return (
     example
   );
+}
+
+const NotesRow = (props: {
+  seq: Sequence, app: App, logs?: boolean
+}): JSX.Element => {
+  const { seq, app, logs } = props;
+  const notes_props = {
+    className: "notes",
+    key: seq.id + ' notes',
+    rows: 1,
+  }
+  let notes_jsx = <EditableTextField field="notes" object={seq}
+    which="seq" app={app} other_props={notes_props} />;
+
+  return <tr>
+    <td className="notes_labels">
+      Notes:
+    </td>
+    <td colSpan={1} className='notes'>
+      {notes_jsx}
+    </td>
+
+    <td className="dataset_log_buttons_td" colSpan={1}>
+      <div className="dataset_log_buttons">
+        {logs ? <></> : <button className="dataset_log_button" onClick={() => app.addNewStep(seq)}>New step</button>}
+      </div>
+    </td>
+  </tr>
 }
 
 // function DatasetLogs(props: { app: App, seqset_logs: DatasetExample[], browse: boolean, white_space_style: WhitespaceStyle }) {
@@ -917,6 +954,67 @@ function EditArea(props: { app: App, seq: Sequence, history: Sequence[] }) {
 }
 
 
+const BulletTree = (props: { app: App }) => {
+  const { app } = props;
+  let top_level_list = []
+  let all_seqs = app.state.all_seqs;
+  let seq_list = Object.values(app.state.all_seqs);
+  console.log('seq_list: ' + seq_list);
+
+  for (let i = 0; i < seq_list.length; i++) {
+    let seq = seq_list[i];
+    console.log('parent ids', seq.parent_ids);
+    if (seq.parent_ids === "") {
+      top_level_list.push({ seq: seq, children: [], jsx: null });
+    }
+  }
+  function addChildren(parent: Sequence): any {
+    let children = [];
+    let steps = parent.steps;
+    for (let j = 0; j < steps.length; j++) {
+      let step = steps[j];
+      let child_ids = step.children_ids.split(' ');
+      if (child_ids) {
+        for (let j = 0; j < child_ids.length; j++) {
+          let child_id = child_ids[j];
+          let child_seq = all_seqs[child_id];
+          if (child_seq) {
+            children.push({ seq: child_seq, children: addChildren(child_seq) });
+          }
+        }
+      }
+    }
+    return children;
+  }
+
+  for (let i = 0; i < top_level_list.length; i++) {
+    let seq = top_level_list[i].seq;
+    top_level_list[i].children = addChildren(seq);
+  }
+  console.log('top', top_level_list)
+
+  function getJSX(seq: Sequence, children: any[]): JSX.Element {
+    let jsx = <ChildLink app={app} seq={seq} key={Math.random()} />;
+    let child_list_jsx = <></> as React.ReactNode;
+
+    if (children.length > 0) {
+      console.log(('children: ' + children));
+      child_list_jsx = children.map((child) => {
+
+        return getJSX(child.seq, child.children);
+      }
+      );
+      return <li>{jsx}<ul>{child_list_jsx}</ul></li>;
+    } else {
+      return <li>{jsx}</li>;
+    }
+  }
+  let jsx = <ul>{top_level_list.map((item) => getJSX(item.seq, item.children))}</ul>;
+  return jsx;
+
+}
+
+
 // =================================================== App ===================================================
 
 
@@ -925,6 +1023,7 @@ function EditArea(props: { app: App, seq: Sequence, history: Sequence[] }) {
 interface AppState {
   current_seqs: { [id: string]: Sequence };
   all_seqs: { [id: string]: Sequence };
+  all_steps: { [id: string]: Step };
   temp: number;
   n_tokens: number;
   setting: string;
@@ -942,6 +1041,7 @@ class App extends React.PureComponent<{}, AppState> {
     this.state = {
       current_seqs: {},
       all_seqs: {},
+      all_steps: {},
       temp: 0,
       n_tokens: 50,
       setting: setting_initial,
@@ -956,19 +1056,22 @@ class App extends React.PureComponent<{}, AppState> {
 
   async componentDidMount() {
     const current_seqs = (await getSequenceLogsFromServer(0));
+    const all_seqs = (await getSequenceLogsFromServer(0));
+    const all_steps = (await getStepLogsFromServer(0));
     console.log('current_seqs: ', current_seqs);
     let history = [] as Sequence[];
+    this.setState({ current_seqs, history, all_seqs, all_steps });
     if (Object.keys(current_seqs).length > 0) {
       const top_seq = Object.values(current_seqs)[0];
       console.log('top_seq: ', top_seq);
-      history = await this.getHistory(top_seq)
+      history = await this.getHistory(top_seq, this)
     }
-    this.setState({ current_seqs, history });
+    this.setState({ history });
 
   }
 
   async focusSeq(seq: Sequence): Promise<void> {
-    const history = await this.getHistory(seq)
+    const history = await this.getHistory(seq, this)
     this.setState({ current_seqs: { [seq.id]: seq, ...this.state.current_seqs }, history })
   }
   getBefore(step: Step, sequence: Sequence | null = null) {
@@ -992,8 +1095,6 @@ class App extends React.PureComponent<{}, AppState> {
     if (setting) {
       before = sequence.setting;
     }
-    console.log('step: ', step);
-    console.log('steps', sequence.steps);
 
     for (let i = 0; i <= step.position; i++) {
       let step_i = sequence.steps[i];
@@ -1003,9 +1104,6 @@ class App extends React.PureComponent<{}, AppState> {
         action = getAction(step_i)
         environment = step_i.environment
       }
-      console.log('step_i: ', step_i);
-      console.log('action: ', action);
-      console.log('environment: ', environment);
       let text = `\n${environment}`
       if (action !== '') {
         text += `\n> Action:${action}`
@@ -1062,15 +1160,21 @@ class App extends React.PureComponent<{}, AppState> {
 
   }
 
-  async getHistory(seq: Sequence): Promise<Sequence[]> {
+  async getHistory(seq: Sequence, app: App): Promise<Sequence[]> {
     const history = [] as Sequence[];
     let current_seq = seq
     while (current_seq.parent_ids != null && current_seq.parent_ids.length > 0) {
       console.log('current_seq: ', current_seq);
-      let parent_step = await getStepByID(current_seq.parent_ids.split(' ')[0])
+      let parent_step = app.getStep(current_seq.parent_ids.split(' ')[0])
+      if (parent_step == null) {
+        break;
+      }
       console.log('parent_step: ', parent_step);
-      current_seq = await getSeqByID(parent_step.sequence_id)
-      history.push(current_seq)
+      current_seq = app.getSeq(parent_step.sequence_id)
+      if (current_seq == null) {
+        break;
+      }
+      history.push(current_seq);
     }
     console.log('history: ', history);
     history.reverse()
@@ -1220,8 +1324,7 @@ class App extends React.PureComponent<{}, AppState> {
     }
     // check if the value changed
     if (value !== sequence[field] || push) {
-      console.log('handle_ seq change, field: ', field);
-      console.log('handle_ seq change, sequence: ', sequence);
+      console.log('handle_ seq change');
       const new_sequence = { ...sequence, [field]: value };
       const new_seqs = { ...this.state.current_seqs };
       new_seqs[sequence.id] = new_sequence;
@@ -1233,7 +1336,10 @@ class App extends React.PureComponent<{}, AppState> {
   }
 
   getSeq(sequence_id: string) {
-    return this.state.current_seqs[sequence_id];
+    return this.state.all_seqs[sequence_id];
+  }
+  getStep(step_id: string) {
+    return this.state.all_steps[step_id];
   }
 
   handleChange(
@@ -1247,7 +1353,6 @@ class App extends React.PureComponent<{}, AppState> {
     // check if the value changed
     if (value !== step[field] || push) {
       console.log('handle_ change, field: ', field);
-      console.log('handle_ change, step: ', step);
       const new_step = { ...step };
       (new_step as any)[field] = value;
       // lookup seq by id
@@ -1322,16 +1427,17 @@ class App extends React.PureComponent<{}, AppState> {
       new_steps[i].position = i;
       serverUpdate({ object: new_steps[i], which: 'step', field: 'position' });
     }
-    serverDeleteStep(step.id)
     this.handleSeqChange(null, new_steps, this.getSeq(step.sequence_id), 'steps', false, false);
+    serverDeleteStep(step.id)
   }
 
   deleteSeq(sequence: Sequence) {
     const new_seqs = { ...this.state.current_seqs };
     delete new_seqs[sequence.id];
-    serverDeleteSeq(sequence.id)
     this.setState({ current_seqs: new_seqs });
+    serverDeleteSeq(sequence.id)
   }
+
   hideSeq(sequence: Sequence) {
     this.handleSeqChange(null, false, sequence, 'show', true, false);
   }
@@ -1374,6 +1480,9 @@ class App extends React.PureComponent<{}, AppState> {
               {jsx}
               <div>
                 <h3>Other Sequences</h3>
+                <div>
+                  <BulletTree app={this} />
+                </div>
                 {seqlogs}
               </div>
             </>
@@ -1412,15 +1521,8 @@ export default withAuth0(App as any);
 // export default App;
 
 
-async function getStepByID(id: string) {
-  return await serverCall(id, '/get_step', true)
 
-}
 
-async function getSeqByID(id: string): Promise<Sequence> {
-  return await serverCall(id, '/get_sequence', true)
-
-}
 /*
 TODO: 
 -add button on step to start new subgoal
