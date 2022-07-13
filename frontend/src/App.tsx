@@ -248,6 +248,15 @@ const ChildLink = (props: { seq: Sequence, app: App }) => {
     }
     }><span className='child link'>{seq.name}</span></div>
 }
+const SelectOption = (props: { option: { label: string; value: string; }, app: App, context: string }) => {
+  const { option, app, context } = props;
+  if (context === 'value') {
+    return ChildLink({ seq: app.getSeq(option.value), app });
+  }
+  return <div>
+    {option.label}
+  </div>
+}
 
 const StepRow = (props: { step: Step, app: App }) => {
   const { step, app } = props;
@@ -305,8 +314,8 @@ const StepRow = (props: { step: Step, app: App }) => {
     openMenuOnClick={false}
 
     isClearable={false}
-    formatOptionLabel={(option) => {
-      return <ChildLink key={Math.random()} seq={app.getSeq(option.value)} app={app} />
+    formatOptionLabel={(option, { context }) => {
+      return <SelectOption key={Math.random()} option={option} app={app} context={context} />
     }}
     className='select_link' />;
 
