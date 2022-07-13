@@ -258,6 +258,10 @@ textarea.option_text {
 
 }
 
+div.reasoning {
+  width: 100%;
+}
+
 td.options_buttons {
   padding: 1px;
 }
@@ -269,12 +273,18 @@ td.option_text {
   border-radius: 3px;
 }
 
-.reasoning_outer {
+div.reasoning_outer {
   display: flex;
   flex-direction: row;
   padding: 0px;
   margin: 0px;
   width: 100%;
+  font-size: small;
+}
+
+tr.reasoning {
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 5px;
 }
 
 
@@ -306,6 +316,7 @@ div.historylink {
   width: fit-content;
 }
 
+
 span.link {
   color: rgb(83, 85, 203);
   text-decoration: underline;
@@ -323,6 +334,21 @@ div.childlink {
   padding-right: 3px;
 }
 
+td.rating,
+td.reasoning_label {
+  text-align: center;
+  vertical-align: middle;
+  padding: 5px;
+  font-size: small;
+
+}
+
+td.index_td {
+  min-width: 20px;
+  text-align: center;
+  border-left: #f2f2f2 5px solid;
+
+}
 
 td.action_text {
   border: 1px solid rgb(231, 235, 239);

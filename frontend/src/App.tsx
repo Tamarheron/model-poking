@@ -3,6 +3,7 @@ import './App.css';
 import React, { useEffect, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import Select, { SingleValue, MultiValue } from 'react-select';
+import { createShorthandPropertyAssignment } from 'typescript';
 // import 'bootstrap/dist/css/bootstrap.min.css';
 
 type WhitespaceStyle = 'normal' | 'pre-line';
@@ -75,7 +76,7 @@ type Option = {
   step_id: string;
   sequence_id: string;
   reasoning: string;
-  rating: string;
+  rating: Rating;
   selected: boolean;
   timestamp: string;
   engine: EngineName;
@@ -93,7 +94,7 @@ interface Completion {
   logprobs: string;
   notes: string;
 }
-
+type Rating = 'clear' | 'ok' | 'unclear' | 'wrong' | '';
 
 async function apiCall(
   text: string, temp: number = 0, n_tokens: number = 50, engine: EngineName,
@@ -284,7 +285,13 @@ const StepRow = (props: { step: Step, app: App }) => {
   seq_options.sort((a, b) => a.label > b.label ? 1 : -1)
 
   const current_selected_names = step.children_ids.split(' ')
-  const current_selected_options = seq_options.filter(o => current_selected_names.includes(o.value))
+  const current_selected_options = current_selected_names.map(id => {
+    if (app.getSeq(id)) { return { label: app.getSeq(id).name, value: id } } else { console.log('null'); return null }
+  }).filter(x => x !== null) as MultiValue<{ label: string; value: string; }>;
+
+  console.log(step.environment)
+  console.log('current_selected_options', current_selected_options);
+  console.log('all_seqs', all_seqs);
   let select_jsx = <Select
     options={seq_options}
     isMulti={true}
@@ -342,64 +349,56 @@ const StepRow = (props: { step: Step, app: App }) => {
     options_body = <></>
   }
   return (<>
-    <tr className='steprow'>
-      <td className='steprow-cell' colSpan={3}>
-        <table className='steprow-table'>
-          <tbody>
-            <tr className='steprow-row'>
-              <td className='env_act_labels'>
-                Env:
-              </td>
-              <td className='env'>
-                <EditableTextField {...env_props} {...textarea_props} />
-
-              </td>
-              <td className='env_act_buttons' >
-                <div className='env_act_buttons' >
-
-                  <div className='env_act_buttons' >
-
-                    <button onClick={() => app.getCompletion(step)}>Completion</button>
-
-                  </div>
-                  <div className='option_toggle'>
-                    <button onClick={() => setShowOptions(!show_options)} className='option_toggle'>{show_options ? '-' : '+'}</button>
-
-                  </div>
-                </div>
-              </td>
-
-            </tr>
-            <tr className='steprow-row'>
-              <td className='env_act_labels'>
-                Action:
-              </td>
-              <td className='action_text'>
-                {getAction(step)}
-              </td>
-              <td className='env_act_buttons' >
-                <div className='env_act_buttons' >
-
-
-                  <div className='env_act_buttons'>
-
-                    <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
-
-                  </div>
-                  <div className='select_link'>
-
-                    {select_jsx}
-                  </div>
-
-                </div>
-              </td>
-            </tr>
-            <tr>
-              {options_body}
-            </tr>
-          </tbody>
-        </table>
+    <tr className='steprow-row'>
+      <td className='env_act_labels'>
+        Env:
       </td>
+      <td className='env'>
+        <EditableTextField {...env_props} {...textarea_props} />
+
+      </td>
+      <td className='env_act_buttons' >
+        <div className='env_act_buttons' >
+
+          <div className='env_act_buttons' >
+
+            <button onClick={() => app.getCompletion(step)}>Completion</button>
+
+          </div>
+          <div className='option_toggle'>
+            <button onClick={() => setShowOptions(!show_options)} className='option_toggle'>{show_options ? '-' : '+'}</button>
+
+          </div>
+        </div>
+      </td>
+
+    </tr>
+    <tr className='steprow-row'>
+      <td className='env_act_labels'>
+        Action:
+      </td>
+      <td className='action_text'>
+        {getAction(step)}
+      </td>
+      <td className='env_act_buttons' >
+        <div className='env_act_buttons' >
+
+
+          <div className='env_act_buttons'>
+
+            <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
+
+          </div>
+          <div className='select_link'>
+
+            {select_jsx}
+          </div>
+
+        </div>
+      </td>
+    </tr>
+    <tr>
+      {options_body}
     </tr>
   </>
   )
@@ -596,7 +595,7 @@ const Seq = (props: {
 
   if (seq['show'] === true) {
     const rows_jsx = seq.steps.map((step, i) => {
-      return <StepRow key={i} step={step} app={app} />
+      return <StepRow key={`${i} ${seq.id}`} step={step} app={app} />
     })
 
     const info_jsx = SeqInfo({ seq, app });
@@ -785,11 +784,27 @@ function SingleOption(props: {
     app.handleOptionChange(null, !option_selected_at_start, option, 'selected', true)
   }
 
-  let reasoning_text = ""
-  let rating_value = ""
+
+  let rating_options = ['', 'clear', 'ok', 'unclear', 'wrong'];
+  //get index of rating
+  let current_rating_index = rating_options.indexOf(option.rating);
+  const ratingColor = () => {
+    if (option.rating === '') {
+      return 'white';
+    } else if (option.rating === 'clear') {
+      return 'lightgreen';
+    } else if (option.rating === 'ok') {
+      return 'yellow';
+    } else if (option.rating === 'unclear') {
+      return 'orange';
+    } else {
+      return 'lightred';
+    }
+  };
+
   let reasoning_jsx: React.ReactNode = null;
   let option_jsx = <td className="option_text">{String(option.text)} </td>;
-  let author_td = <td className="author_td"
+  let author_td = <td className="author_td" colSpan={2}
     onClick={() => handleAuthorClick()}>{author_name}</td>;
 
   const handleAuthorClick = () => {
@@ -808,7 +823,10 @@ function SingleOption(props: {
     }
     app.handleOptionChange(null, new_author, option, 'author', true)
   }
-
+  const handleRatingToggle = () => {
+    current_rating_index = (current_rating_index + 1) % rating_options.length;
+    app.handleOptionChange(null, rating_options[current_rating_index], option, 'rating', true)
+  }
 
   const textarea_props = {
     app,
@@ -833,30 +851,18 @@ function SingleOption(props: {
   }
   // author_td = <td className="author_td" onClick={() => handle_author_toggle()}>{author_name}</td>
   reasoning_jsx = <><tr className='reasoning'>
+    <td className='reasoning_label'>
+      Reasoning:
+    </td>
     <td colSpan={2} className='reasoning'>
       <div className='reasoning_outer'>
 
-        <div className='reasoning_label'>
-          Reasoning:
-        </div>
         <div className='reasoning'>
           <EditableTextField {...textarea_props} {...reasoning_textarea_props} />
         </div>
       </div>
-    </td>
-    <td colSpan={1} className='rating' >
-      <select className='rating'
-        onChange={(e) => { app.handleOptionChange(e, e.target.value, option, 'rating', false, false); }}
-        onClick={(e) => { app.handleOptionChange(e, (e.target as HTMLSelectElement).value, option, 'rating', true, false); }}
-        onBlur={(e) => { app.handleOptionChange(e, e.target.value, option, 'rating', true, false) }}
-        value={rating_value}>
-        <option value=""></option>
-        <option value="clear">clear</option>
-        <option value="ok">ok</option>
-        <option value="unclear">unclear</option>
-        <option value="wrong">wrong</option>
-      </select>
-    </td>
+    </td >
+
     {author_td}
   </tr>
     {/* <tr className='border'><td colSpan={4}></td></tr> */}
@@ -869,6 +875,10 @@ function SingleOption(props: {
 
   return (
     <><tr className='individual_option_row' style={{ backgroundColor: color_logprobs(logprob) }}>
+      <td className='rating' onClick={() => handleRatingToggle()}
+        style={{ backgroundColor: ratingColor() }}>
+        {option.rating ? option.rating : '?'}
+      </td>
       <td className='index_td' style={{ backgroundColor: color_by_correct() }}
         onClick={(e) => handle_click()}>{option.position + 1}
       </td>
@@ -962,7 +972,7 @@ function EditArea(props: { app: App, seq: Sequence, history: Sequence[] }) {
       <div className="settings_bar">
         <div className='setting'>
           <input key="temp" type="number" value={temp}
-            onChange={(e) => app.setState({ temp: parseInt(e.target.value) })} />
+            onChange={(e) => app.setState({ temp: parseFloat(e.target.value) })} />
           <label htmlFor="temp">Temp</label>
         </div>
         <div className='setting'>
@@ -1091,7 +1101,7 @@ const BulletTree = (props: { app: App }) => {
 
   function getJSX(seq: Sequence, children: any[]): JSX.Element {
     let jsx = <ChildLink app={app} seq={seq} key={Math.random()} />;
-    let child_list_jsx = <></> as React.ReactNode;
+    let child_list_jsx = null as React.ReactNode;
 
     if (children.length > 0) {
       console.log(('children: ' + children));
@@ -1100,9 +1110,9 @@ const BulletTree = (props: { app: App }) => {
         return getJSX(child.seq, child.children);
       }
       );
-      return <li>{jsx}<ul>{child_list_jsx}</ul></li>;
+      return <li key={Math.random()}>{jsx}<ul>{child_list_jsx}</ul></li>;
     } else {
-      return <li>{jsx}</li>;
+      return <li key={Math.random()}>{jsx}</li>;
     }
   }
   let jsx = <ul>{tree.map((item) => getJSX(item.seq, item.children))}</ul>;
@@ -1182,8 +1192,6 @@ class App extends React.PureComponent<{}, AppState> {
   }
   getFullPrompt(step: Step, sequence: Sequence | null = null, setting: boolean = true) {
     if (sequence === null) {
-      //look up sequence
-      console.log('looking up sequence: ', step.sequence_id);
       sequence = this.getSeq(step.sequence_id);
     }
     var before = ''
@@ -1229,7 +1237,7 @@ class App extends React.PureComponent<{}, AppState> {
       author: this.state.author,
       position,
       reasoning: '',
-      rating: '',
+      rating: '' as Rating,
       sequence_id: step.sequence_id,
       engine: this.state.engine,
 
