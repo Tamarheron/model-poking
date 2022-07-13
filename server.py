@@ -63,13 +63,8 @@ class Completion(db.Model):
     notes: string
     notes = db.Column(db.String)
 @dataclass
-class Test(db.Model):
-    id: int
-    id = db.Column(db.Integer, primary_key=True)
-    text: string
-    text = db.Column(db.String)
-@dataclass
 class NewOption(db.Model):
+    __tablename__ = "newoption_test"
     id: string
     id = db.Column(db.String, primary_key=True)
 
@@ -89,7 +84,7 @@ class NewOption(db.Model):
     correct = db.Column(db.Boolean)
     
     step_id: string
-    step_id = db.Column(db.String, db.ForeignKey("step.id"))
+    step_id = db.Column(db.String, db.ForeignKey("step_test.id"))
     step = db.relationship("Step", back_populates="options_list",lazy=False)
     
     reasoning: string
@@ -102,7 +97,7 @@ class NewOption(db.Model):
     selected = db.Column(db.Boolean)
     
     sequence_id: string
-    sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
+    sequence_id = db.Column(db.String, db.ForeignKey("sequence_test.id"))
     
     timestamp:string
     timestamp = db.Column(db.String)
@@ -113,7 +108,7 @@ class NewOption(db.Model):
 
 @dataclass
 class Sequence(db.Model):
-    __tablename__ = "sequence"
+    __tablename__ = "sequence_test"
     setting: string
     setting = db.Column(db.String)
     
@@ -144,17 +139,19 @@ class Sequence(db.Model):
     name:string
     name = db.Column(db.String)
 
-    parent_ids: string
-    parent_ids = db.Column(db.String)
 
+children = db.Table('children',
+    db.Column('parent_id', db.String, db.ForeignKey('step_test.id'), primary_key=True),
+    db.Column('child_id', db.String, db.ForeignKey('sequence_test.id'), primary_key=True)
+)
 @dataclass
 class Step(db.Model):
-    __tablename__ = "step"
+    __tablename__ = "step_test"
     id: string
     id = db.Column(db.String, primary_key=True)
 
     sequence_id: string
-    sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
+    sequence_id = db.Column(db.String, db.ForeignKey("sequence_test.id"))
     sequence = db.relationship("Sequence",  foreign_keys=[sequence_id])
     
     position: int
@@ -168,8 +165,7 @@ class Step(db.Model):
     notes: string
     notes = db.Column(db.String)
     
-    children_ids: string
-    children_ids = db.Column(db.String)
+    children = db.relationship("Sequence", secondary=children, uselist=True, backref=db.backref("parents"))
 
     logprob_engine: string
     logprob_engine = db.Column(db.String)
@@ -339,7 +335,7 @@ def update_option(option:NewOption):
     option_obj = db.session.query(NewOption).filter_by(id=option['id']).first()
     if option_obj is None:
         option_obj = NewOption(**option)
-        db.session.add(option_obj)
+        # db.session.add(option_obj)
     else:
         #update option
         for key, value in option.items():
@@ -356,7 +352,7 @@ def update_step(step:Step):
     step_obj = db.session.query(Step).filter_by(id=step['id']).first()
     if step_obj is None:
         step_obj = Step(**step)
-        db.session.add(step_obj)
+        # db.session.add(step_obj)
     else:
         #update step
         for key, value in step.items():
