@@ -232,6 +232,7 @@ def get_action_options():
         max_tokens=100,
     )
     print("getting completion from openai, engine: " + engine)
+    print('prompt: ' + prompt)
 
     completions = [choice.text for choice in response.choices]
     # remove duplicates

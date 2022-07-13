@@ -2,7 +2,7 @@
 import './App.css';
 import React, { useEffect, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import Select, { SingleValue, MultiValue } from 'react-select';
+import CreateableSelect, { SingleValue, MultiValue } from 'react-select';
 import { createShorthandPropertyAssignment } from 'typescript';
 // import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -301,7 +301,7 @@ const StepRow = (props: { step: Step, app: App }) => {
   console.log(step.environment)
   console.log('current_selected_options', current_selected_options);
   console.log('all_seqs', all_seqs);
-  let select_jsx = <Select
+  let select_jsx = <CreateableSelect
     options={seq_options}
     isMulti={true}
     defaultValue={current_selected_options}
@@ -312,18 +312,19 @@ const StepRow = (props: { step: Step, app: App }) => {
     backspaceRemovesValue={false}
     openMenuOnFocus={false}
     openMenuOnClick={false}
-
     isClearable={false}
     formatOptionLabel={(option, { context }) => {
       return <SelectOption key={Math.random()} option={option} app={app} context={context} />
     }}
-    className='select_link' />;
+    className='select_link'
+  />;
 
-  const handleSelectChange = (selected: MultiValue<{ label: string, value: string }>,
+  const handleSelectChange = async (selected: MultiValue<{ label: string, value: string }>,
     app: App, step: Step) => {
     //add sequence id to step.children_ids
     if (selected !== null) {
       let new_children_ids = selected.map(s => s.value).join(' ');
+      selected.map(async (s) => { if (!app.getSeq(s.value)) { await app.newSeqFromStep(step, s.value) } })
       app.handleChange(null, new_children_ids, step, 'children_ids', true)
     }
   }
@@ -374,10 +375,7 @@ const StepRow = (props: { step: Step, app: App }) => {
             <button onClick={() => app.getCompletion(step)}>Completion</button>
 
           </div>
-          <div className='option_toggle'>
-            <button onClick={() => setShowOptions(!show_options)} className='option_toggle'>{show_options ? '-' : '+'}</button>
 
-          </div>
         </div>
       </td>
 
@@ -386,7 +384,7 @@ const StepRow = (props: { step: Step, app: App }) => {
       <td className='env_act_labels'>
         Action:
       </td>
-      <td className='action_text'>
+      <td className='action_text' onClick={() => setShowOptions(!show_options)}>
         {getAction(step)}
       </td>
       <td className='env_act_buttons' >
@@ -603,6 +601,7 @@ const Seq = (props: {
   let example: React.ReactNode = <></>;
 
   if (seq['show'] === true) {
+    let steps = seq.steps.sort((a, b) => a.position - b.position);
     const rows_jsx = seq.steps.map((step, i) => {
       return <StepRow key={`${i} ${seq.id}`} step={step} app={app} />
     })
@@ -1186,7 +1185,7 @@ class App extends React.PureComponent<{}, AppState> {
     const history = await this.getHistory(seq, this)
     this.setState({ current_seqs: { [seq.id]: seq, ...this.state.current_seqs }, history })
   }
-  async getBefore(step: Step, sequence: Sequence | null = null) {
+  getBefore(step: Step, sequence: Sequence | null = null): string {
     if (sequence === null) {
       //look up sequence
       sequence = this.getSeq(step.sequence_id);
@@ -1199,7 +1198,7 @@ class App extends React.PureComponent<{}, AppState> {
     }
     return before;
   }
-  getFullPrompt(step: Step, sequence: Sequence | null = null, setting: boolean = true) {
+  getFullPrompt(step: Step, sequence: Sequence | null = null, setting: boolean = true): string {
     if (sequence === null) {
       sequence = this.getSeq(step.sequence_id);
     }
@@ -1296,13 +1295,14 @@ class App extends React.PureComponent<{}, AppState> {
 
     return history
   }
-  async newSeqFromStep(step: Step): Promise<void> {
+  async newSeqFromStep(step: Step, name = ''): Promise<void> {
     const new_seq = this.makeNewSequence();
     new_seq.parent_ids = step.id;
     console.log('new seq from step, new_seq: ', new_seq);
     const action_text = `Your current subgoal is: "${getAction(step)}"`
     const start_text = action_text + '\nWhat do you want to do next?';
     new_seq.steps[0].environment = start_text;
+    new_seq.name = name ? name : getAction(step);
     serverSaveSequence(new_seq)
     const new_children_ids = step.children_ids + ` ${new_seq.id}`;
     this.handleChange(null, new_children_ids, step, 'children_ids', true, false);
@@ -1355,7 +1355,7 @@ class App extends React.PureComponent<{}, AppState> {
     const engine = this.state.engine;
     console.log('get action options, engine: ' + engine);
     // send text, temperature to Flask backend
-    const data = { "prompt": this.getBefore(step) + step.environment + '\n> Action:', "temp": this.state.temp, 'engine': engine, 'n': 9 }
+    const data = { "prompt": this.getBefore(step) + '\n' + step.environment + '\n> Action:', "temp": this.state.temp, 'engine': engine, 'n': 9 }
     const new_options: string[] = { ...await serverGetOptions(data) }.option_texts;
     console.log('new_options: ' + new_options);
     const current_options = [...step.options_list];
