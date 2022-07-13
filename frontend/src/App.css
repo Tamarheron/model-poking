@@ -39,7 +39,7 @@
 }
 
 div {
-  width: 98%;
+
   margin: auto;
   display: inline;
 }
@@ -129,8 +129,8 @@ td.env {
 
 
 .select_link {
-  width: 200px;
-  width: max-content;
+  min-width: 300px;
+
 }
 
 div.delete_step {

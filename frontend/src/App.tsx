@@ -242,10 +242,12 @@ const ChildLink = (props: { seq: Sequence, app: App }) => {
   const { seq, app } = props;
   return <div className='childlink'
     onClick={() => {
+      console.log('clicked childlink', seq);
       app.focusSeq(seq);
     }
     }><span className='child link'>{seq.name}</span></div>
 }
+
 const StepRow = (props: { step: Step, app: App }) => {
   const { step, app } = props;
   const textarea_props = {
@@ -278,20 +280,34 @@ const StepRow = (props: { step: Step, app: App }) => {
     delete all_seqs[id];
   }
   delete all_seqs[step.sequence_id];
-  let seq_names = Object.values(all_seqs).map(s => { return { label: s.name, value: s.id } })
+  let seq_options = Object.values(all_seqs).map(s => { return { label: s.name, value: s.id } })
+  seq_options.sort((a, b) => a.label > b.label ? 1 : -1)
 
+  const current_selected_names = step.children_ids.split(' ')
+  const current_selected_options = seq_options.filter(o => current_selected_names.includes(o.value))
+  let select_jsx = <Select
+    options={seq_options}
+    isMulti={true}
+    defaultValue={current_selected_options}
+    onChange={(selected) => {
+      handleSelectChange(selected, app, step);
+    }}
+    placeholder="link child"
+    backspaceRemovesValue={false}
+    openMenuOnFocus={false}
+    openMenuOnClick={false}
 
-  seq_names.sort((a, b) => a.label > b.label ? 1 : -1)
-
-  let select_jsx = <Select options={seq_names} isMulti={true} onChange={(selected) => {
-    handleSelectChange(selected, app, step);
-  }} placeholder="link child" className='select_link' />;
+    isClearable={false}
+    formatOptionLabel={(option) => {
+      return <ChildLink key={Math.random()} seq={app.getSeq(option.value)} app={app} />
+    }}
+    className='select_link' />;
 
   const handleSelectChange = (selected: MultiValue<{ label: string, value: string }>,
     app: App, step: Step) => {
     //add sequence id to step.children_ids
     if (selected !== null) {
-      let new_children_ids = step.children_ids + ' ' + selected.map(s => s.value).join(' ');
+      let new_children_ids = selected.map(s => s.value).join(' ');
       app.handleChange(null, new_children_ids, step, 'children_ids', true)
     }
   }
@@ -364,9 +380,7 @@ const StepRow = (props: { step: Step, app: App }) => {
               <td className='env_act_buttons' >
                 <div className='env_act_buttons' >
 
-                  <div className='child_links'>
-                    {child_links}
-                  </div>
+
                   <div className='env_act_buttons'>
 
                     <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
