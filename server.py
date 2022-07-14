@@ -15,7 +15,6 @@ from dataclasses import dataclass
 import dataclasses
 from sqlalchemy import ForeignKey, orm
 from flask_httpauth import HTTPBasicAuth
-from werkzeug.security import generate_password_hash, check_password_hash
 auth = HTTPBasicAuth()
 
 
@@ -110,7 +109,17 @@ class NewOption(db.Model):
     engine: string
     engine = db.Column(db.String)
 
+@dataclass
+class Tag(db.Model):
+    text: string
+    text = db.Column(db.String, primary_key=True)
 
+
+    
+# tags = db.Table('tags',
+#     db.Column('tag_id', db.String, db.ForeignKey('tag.text'), primary_key=True),
+#     db.Column('sequence_id', db.String, db.ForeignKey('sequence.id'), primary_key=True)
+# )
 @dataclass
 class Sequence(db.Model):
     __tablename__ = "sequence"
@@ -147,6 +156,10 @@ class Sequence(db.Model):
     parent_ids: string
     parent_ids = db.Column(db.String)
 
+    # tags = db.relationship("Tag", secondary=tags, lazy='False', back_populates="sequences")
+    tags: string
+    tags = db.Column(db.String)
+
 @dataclass
 class Step(db.Model):
     __tablename__ = "step"
@@ -179,7 +192,6 @@ class Step(db.Model):
     
     timestamp:string
     timestamp = db.Column(db.String)
-
 
 
 
@@ -322,7 +334,6 @@ def delete_sequence():
 
 @app.route("/get_step", methods=["POST"])
 def get_step():
-    print("get_step")
     data = flask.request.get_json()
     id = data
     step = Step.query.options(orm.joinedload(Step.options_list)).filter_by(id=id).first()
@@ -476,15 +487,43 @@ def get_step_logs():
     return json.dumps(dict_list)
 
 
+@app.route("/get_tags")
+def get_tags():
+    print("get_tags")
+    start_time = time.time()
+    stmt = (
+        db.session.query(Tag)
+        .filter()
+        .all()
+    )
+    tags = [x.text for x in stmt]
+    tags.sort()
+    print("finished db query, took time: ", time.time() - start_time)
+    start_time = time.time()
+    print("finished get_tags, took: ", time.time() - start_time)
+    print(tags)
+    # print(f'dict_list: {dict_list}')
+    return json.dumps(tags)
+
+#add tag
+@app.route("/add_tag", methods=["POST"])
+def add_tag():
+    print("add_tag")
+    data = flask.request.get_json()
+    tag = Tag(text=data['tag'])
+    db.session.add(tag)
+    db.session.commit()
+    return "saved"
+
+
+
 def step_to_dict(step):
-    print("step_to_dict")
     d = dataclasses.asdict(step)
     d["options_list"] = [ dataclasses.asdict(option) for option in step.options_list
     ]
     return d
 
 def seq_to_dict(example):
-    print("seq_to_dict")
     d = dataclasses.asdict(example)
     d['steps'] = [step_to_dict(x) for x in example.steps]
     return d

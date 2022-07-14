@@ -68,12 +68,18 @@ table {
 
 td.notes {
   width: 100%;
+  display: inline-flex;
 }
 
 td.show_options {
   width: 100%;
   text-align: center;
   border: 0px;
+}
+
+div.notes,
+div.tags {
+  width: 100%
 }
 
 td.steprow-cell {
