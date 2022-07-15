@@ -224,7 +224,7 @@ def submit_prompt():
     return flask.jsonify({'completion':completion})
 
 
-@app.route("/get_action_options", methods=["POST"])
+@app.route("/get_options", methods=["POST"])
 def get_action_options():
     print("get_action_options")
     # get json from request
