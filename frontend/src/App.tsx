@@ -1455,16 +1455,18 @@ class App extends React.PureComponent<{}, AppState> {
     const logprobs = { ...data.answer_logprobs };
     console.log('logprobs: ', logprobs);
     let new_options_list = [...step.options_list];
+    console.log(' Object.keys(logprobs).length: ', Object.keys(logprobs).length);
     for (let i = 0; i < Object.keys(logprobs).length; i++) {
       const choice = Object.keys(logprobs)[i];
       const int = parseInt(choice);
       console.log('choice: ' + choice + ' int: ' + int);
-      if (int != NaN && int < new_options_list.length) {
+      if (int != NaN && int <= new_options_list.length && int > 0) {
         const logprob = logprobs[choice as keyof LogProbs];
         console.log('logprob: ' + logprob);
-        new_options_list[int].logprob = logprob;
+        new_options_list[int - 1].logprob = logprob;
       }
     }
+    console.log('new_options_list: ', new_options_list);
     this.handleChange(null, new_options_list, step, 'options_list', true, false);
   }
 
