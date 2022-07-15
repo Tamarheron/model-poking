@@ -82,6 +82,18 @@ div.tags {
   width: 100%
 }
 
+div.loading_box {
+  min-width: 100%;
+  text-align: center;
+  color: white;
+  background-color: #70247d;
+}
+
+td.divider {
+  height: 1px;
+  background-color: rgb(170, 179, 174)
+}
+
 td.steprow-cell {
   border-top: rgb(175, 176, 175) 3px solid;
   padding: 3px;

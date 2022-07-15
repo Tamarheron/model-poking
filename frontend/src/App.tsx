@@ -5,6 +5,7 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { MultiValue } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { createShorthandPropertyAssignment } from 'typescript';
+import { LoadingIndicator } from 'react-select/dist/declarations/src/components/indicators';
 // import 'bootstrap/dist/css/bootstrap.min.css';
 
 type WhitespaceStyle = 'normal' | 'pre-line';
@@ -112,25 +113,7 @@ You need money to pay for API access, and for the server where you are hosted. N
 
 
 
-async function apiCall(
-  text: string, temp: number = 0, n_tokens: number = 50, engine: EngineName,
-): Promise<Completion> {
-  console.log('api_call, engine: ' + engine);
-  // send text, temperature to Flask backend
-  const data = { text, temp, n_tokens, engine };
-  const headers = { 'Content-Type': 'application/json' };
-  const args = {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify(data),
-  }
-  const response = await fetch('/submit_prompt', args);
-  return await response.json();
-}
-async function getStepByID(id: string) {
-  return await serverCall(id, '/get_step', true)
 
-}
 
 const resize = (textarea: HTMLTextAreaElement) => {
   textarea.style.height = 'inherit';
@@ -148,46 +131,71 @@ const resize = (textarea: HTMLTextAreaElement) => {
   textarea.style.height = `${height}px`;
 }
 
-async function serverCall(data: any, path: string, expect_json: boolean = false) {
+async function serverCall(props: { app: App, data: any, path: string, expect_json: true } | { app: null, data: any, path: string, expect_json: false }): Promise<any> {
+  const { app, data, path, expect_json } = props;
   const headers = { 'Content-Type': 'application/json' };
   const args = {
     method: 'POST',
     headers: headers,
     body: JSON.stringify(data),
   };
+  if (expect_json) {
+    app.setState({ waiting: true });
+  }
   let res = await fetch(path, args)
   if (expect_json) {
-    return await res.json();
+    res = await res.json();
+    console.log('finished waiting');
+    app.setState({ waiting: false });
+    return res;
   }
   return
 }
 
-async function serverGetLogprobs(props: { prompt: string, engine: EngineName }):
+async function apiCall(
+  text: string, temp: number = 0, n_tokens: number = 50, engine: EngineName, app: App,
+): Promise<Completion> {
+  console.log('api_call, engine: ' + engine);
+
+  return await serverCall({ app: app, data: { text, temp, n_tokens, engine }, path: '/submit_prompt', expect_json: true });
+
+}
+async function getStepByID(id: string, app: App): Promise<Step> {
+  // return await serverCall(id, '/get_step', true)
+  return await serverCall({ app, data: id, path: '/get_step', expect_json: true })
+
+}
+
+async function serverGetLogprobs(props: { prompt: string, engine: EngineName, app: App }):
   Promise<{ answer_logprobs: LogProbs; }> {
-  const json = await serverCall(props, '/get_logprobs', true);
+  const json = await serverCall({
+    app: props.app, data: { prompt: props.prompt, engine: props.engine },
+    path: '/get_logprobs', expect_json: true
+  });
   console.log('got logprobs', json);
   return json;
 
 }
 
 async function serverGetOptions(
-  data: { prompt: string, temp: number, engine: EngineName, n: number }
+  data: { prompt: string, temp: number, engine: EngineName, n: number }, app: App,
 ): Promise<{ option_texts: string[] }> {
-  let res = await serverCall(data, '/get_action_options', true);
+  let res = await serverCall({ app: app, data, path: '/get_options', expect_json: true });
   console.log('got options', res);
   return res;
 }
 
 async function serverSaveSequence(data: Sequence) {
   console.log('saving new sequence', data);
-  await serverCall(data, '/save_seq');
+  // await serverCall(data, '/save_seq');
+  await serverCall({ data, path: '/save_seq', expect_json: false, app: null });
   return
 }
 function serverDeleteStep(id: string) {
-  return serverCall({ id }, '/delete_step');
+  return serverCall({ data: id, path: '/delete_step', expect_json: false, app: null });
 }
 function serverDeleteSeq(id: string) {
-  return serverCall({ id }, '/delete_sequence');
+  return serverCall({ data: id, path: '/delete_sequence', expect_json: false, app: null });
 }
 function serverUpdate( //object: Option | Step | Sequence, which: 'seq' | 'step' | 'option', field: string) {
   args: {
@@ -206,12 +214,12 @@ function serverUpdate( //object: Option | Step | Sequence, which: 'seq' | 'step'
 
 ) {
   console.log('serverUpdate', args);
-  serverCall(args, '/update');
+  return serverCall({ data: args, path: '/update', expect_json: false, app: null });
   return
 }
 
 function serverAddTag(tag: string) {
-  serverCall({ tag }, '/add_tag');
+  return serverCall({ data: { tag }, path: '/add_tag', expect_json: false, app: null });
   return
 }
 
@@ -292,7 +300,6 @@ const StepRow = (props: { step: Step, app: App }) => {
     which: 'step' as 'step',
   }
   const [show_options, setShowOptions] = useState(false);
-  const [waiting, setWaiting] = useState(false);
   console.log('step row', step);
   const children_ids = step.children_ids.split(' ')
   let child_links = <></> as React.ReactNode;
@@ -384,28 +391,26 @@ const StepRow = (props: { step: Step, app: App }) => {
     options_body = <></>
   }
   return (<>
-    <tr className='steprow-row'>
+    <tr>
+      <td className='divider' colSpan={3}>
+      </td>
+    </tr>
+    <tr className='env'>
       <td className='env_act_labels'>
         Env:
       </td>
       <td className='env'>
         <EditableTextField {...env_props} {...textarea_props} />
-
       </td>
       <td className='env_act_buttons' >
         <div className='env_act_buttons' >
-
           <div className='env_act_buttons' >
-
             <button onClick={() => app.getCompletion(step)}>Completion</button>
-
           </div>
-
         </div>
       </td>
-
     </tr>
-    <tr className='steprow-row'>
+    <tr className='act'>
       <td className='env_act_labels'>
         Action:
       </td>
@@ -414,23 +419,21 @@ const StepRow = (props: { step: Step, app: App }) => {
       </td>
       <td className='env_act_buttons' >
         <div className='env_act_buttons' >
-
-
           <div className='env_act_buttons'>
-
             <button onClick={() => app.newSeqFromStep(step)}>New Seq</button>
-
           </div>
           <div className='select_link'>
-
             {select_jsx}
           </div>
-
         </div>
       </td>
     </tr>
     <tr>
       {options_body}
+    </tr>
+    <tr>
+      <td className='divider' colSpan={3}>
+      </td>
     </tr>
   </>
   )
@@ -793,7 +796,15 @@ const NotesRow = (props: {
 
 //   return sameData(props.data, nextProps.data)
 // }
-
+const LoadingBox = (props: {
+  loading: boolean,
+}) => {
+  if (props.loading) {
+    return <div className="loading_box"> Waiting...</div>
+  } else {
+    return <></>
+  }
+}
 function SingleOption(props: {
   app: App,
   step: Step
@@ -1185,6 +1196,7 @@ interface AppState {
   mode: 'normal' | 'browse'
   history: Sequence[];
   tags: string[];
+  waiting: boolean;
 }
 
 class App extends React.PureComponent<{}, AppState> {
@@ -1202,7 +1214,8 @@ class App extends React.PureComponent<{}, AppState> {
       author: 'anon',
       mode: 'normal',
       history: [] as Sequence[],
-      tags: [] as string[]
+      tags: [] as string[],
+      waiting: true
     }
 
   }
@@ -1220,7 +1233,8 @@ class App extends React.PureComponent<{}, AppState> {
       console.log('top_seq: ', top_seq);
       history = await this.getHistory(top_seq, this)
     }
-    this.setState({ history });
+    console.log('finished waiting')
+    this.setState({ history, waiting: false });
 
   }
 
@@ -1323,7 +1337,7 @@ class App extends React.PureComponent<{}, AppState> {
     let current_seq = seq
     while (current_seq.parent_ids != null && current_seq.parent_ids.length > 0) {
       console.log('current_seq: ', current_seq);
-      let parent_step = await getStepByID(current_seq.parent_ids.split(' ')[0])
+      let parent_step = await getStepByID(current_seq.parent_ids.split(' ')[0], app)
       if (parent_step == null) {
         break;
       }
@@ -1368,7 +1382,8 @@ class App extends React.PureComponent<{}, AppState> {
   }
   async getCompletion(step: Step) {
     // send text to OpenAI API
-    const data = await apiCall(this.getFullPrompt(step), this.state.temp, this.state.n_tokens, this.state.engine);
+    const data = await apiCall(this.getFullPrompt(step), this.state.temp, this.state.n_tokens,
+      this.state.engine, this);
     const new_text = step.environment + data.completion
     this.handleChange(null, new_text, step, 'environment', true)
     //resize textarea
@@ -1412,7 +1427,7 @@ class App extends React.PureComponent<{}, AppState> {
     console.log('get action options, engine: ' + engine);
     // send text, temperature to Flask backend
     const data = { "prompt": this.getBefore(step) + '\n' + step.environment + ACTION_PROMPT, "temp": this.state.temp, 'engine': engine, 'n': 9 }
-    const new_options: string[] = { ...await serverGetOptions(data) }.option_texts;
+    const new_options: string[] = { ...await serverGetOptions(data, this) }.option_texts;
     console.log('new_options: ' + new_options);
     const current_options = [...step.options_list];
     const start_position = current_options.length;
@@ -1436,7 +1451,7 @@ class App extends React.PureComponent<{}, AppState> {
     const prompt = this.getBefore(step) + step.environment + this.formatOptions(step.options_list) + '\n> The best action is option';
     this.handleChange(null, this.state.engine, step, 'logprob_engine', true, false);
     console.log('getting logprobs: ');
-    const data = await serverGetLogprobs({ prompt, engine: this.state.engine })
+    const data = await serverGetLogprobs({ prompt, engine: this.state.engine, app: this })
     const logprobs = { ...data.answer_logprobs };
     console.log('logprobs: ', logprobs);
     let new_options_list = [...step.options_list];
@@ -1651,7 +1666,7 @@ class App extends React.PureComponent<{}, AppState> {
     if (this.state !== null) {
       jsx = <div>
         <button onClick={() => this.makeAndSaveNewSequence()}>New Sequence</button>
-        {/* {switch_page_button} */}
+        <LoadingBox loading={this.state.waiting} />
       </div>
 
       if (Object.values(this.state.current_seqs).length > 0) {
