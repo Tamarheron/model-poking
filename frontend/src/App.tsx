@@ -162,7 +162,7 @@ async function apiCall(
 }
 async function getStepByID(id: string, app: App): Promise<Step> {
   // return await serverCall(id, '/get_step', true)
-  return await serverCall({ app, data: id, path: '/get_step', expect_json: true })
+  return await serverCall({ app, data: { 'id': id }, path: '/get_step', expect_json: true })
 
 }
 
@@ -192,10 +192,10 @@ async function serverSaveSequence(data: Sequence) {
   return
 }
 function serverDeleteStep(id: string) {
-  return serverCall({ data: id, path: '/delete_step', expect_json: false, app: null });
+  return serverCall({ data: { 'id': id }, path: '/delete_step', expect_json: false, app: null });
 }
 function serverDeleteSeq(id: string) {
-  return serverCall({ data: id, path: '/delete_sequence', expect_json: false, app: null });
+  return serverCall({ data: { 'id': id }, path: '/delete_sequence', expect_json: false, app: null });
 }
 function serverUpdate( //object: Option | Step | Sequence, which: 'seq' | 'step' | 'option', field: string) {
   args: {
@@ -282,10 +282,21 @@ const ChildLink = (props: { seq: Sequence, app: App }) => {
     }
     }><span className='child link'>{seq.name}</span></div>
 }
+
+const TagLink = (props: { seq: Sequence, app: App }) => {
+  const { seq, app } = props;
+  return <div className='taglink'
+    onClick={() => {
+      console.log('clicked childlink', seq);
+      app.focusSeq(seq);
+    }
+    }><span className='tag link'>{seq.name.slice(0, 30)}</span></div>
+}
+
 const SelectOption = (props: { option: { label: string; value: string; }, app: App, context: string }) => {
   const { option, app, context } = props;
   if (context === 'value' && app.getSeq(option.value) !== undefined) { //TODO: better handle the async here
-    return ChildLink({ seq: app.getSeq(option.value), app });
+    return TagLink({ seq: app.getSeq(option.value), app });
   }
   return <div>
     {option.label}
@@ -376,9 +387,9 @@ const StepRow = (props: { step: Step, app: App }) => {
       {oal}
       <tr>
         <td colSpan={5} className='options_buttons'>
-          {/* <div className='delete_step'>
+          <div className='delete_step'>
             <button onClick={() => app.deleteStep(step)} className='delete' >Delete Step</button>
-          </div> */}
+          </div>
           <button className='new_option' onClick={() => app.addNewOption(step)}>New Option</button>
           <button onClick={() => app.getOptions(step)}>Get Options from model </button>
           <button onClick={() => app.getAnswers(step)}>Get Logprobs from model </button>
@@ -686,16 +697,17 @@ const NotesRow = (props: {
     }) as MultiValue<{ label: string; value: string; }>;
   }
   let current_tags = [] as MultiValue<{ label: string; value: string; }>;
-  if (seq.tags !== null && seq.tags.replace(' ', '') !== '') {
+  if (seq.tags !== null && seq.tags.replace(' ', '') !== '' && seq.tags !== '') {
     current_tags = seq.tags.split(' ').map((tag: string) => {
       return { value: tag, label: tag }
     }) as MultiValue<{ label: string; value: string; }>;
+    console.log(seq.name)
+    console.log('current tags', current_tags);
   }
+
   return <tr>
-    <td className="notes_labels">
+    <td colSpan={3} className='notes'>
       Notes:
-    </td>
-    <td colSpan={1} className='notes'>
       <div className='notes'>
         {notes_jsx}
       </div>
@@ -707,14 +719,18 @@ const NotesRow = (props: {
           onChange={(selected => app.handleSeqChange(null, selected.map((x) => x.value).join(' '), seq, 'tags', true))}
           placeholder="Add tags"
           isClearable={false}
+          key={seq.id + ' tags' + logs}
         />
       </div>
-    </td>
-    <td className="dataset_log_buttons_td" colSpan={1}>
+
       <div className="dataset_log_buttons">
         {logs ? <></> : <button className="dataset_log_button" onClick={() => app.addNewStep(seq)}>New step</button>}
       </div>
+      <div className='bottom_name'>
+        {seq.name}
+      </div>
     </td>
+
   </tr>
 }
 
@@ -1110,8 +1126,11 @@ const makeTree = async (app: App) => {
       for (let j = 0; j < parent_list.length; j++) {
         const parent_step_id = parent_list[j];
         const parent_step = all_steps[parent_step_id];
-        const parent_seq_id = parent_step.sequence_id;
-        if (all_seqs.hasOwnProperty(parent_seq_id)) {
+        let parent_seq_id = null
+        if (parent_step !== undefined) {
+          parent_seq_id = parent_step.sequence_id;
+        }
+        if (parent_seq_id !== null && all_seqs.hasOwnProperty(parent_seq_id)) {
           valid_parent = true;
         }
       }
@@ -1173,7 +1192,13 @@ const BulletTree = (props: { app: App }) => {
       return <li key={Math.random()}>{jsx}</li>;
     }
   }
-  let jsx = <ul>{tree.map((item) => getJSX(item.seq, item.children))}</ul>;
+  //add a blank element every other item
+  let spaced_tree = [] as SeqTree[];
+  tree.map(
+    (seq_node) => { spaced_tree.push(seq_node); spaced_tree.push({ seq: { name: '' } as any, children: [] }); return; } ,
+  )
+
+  let jsx = <ul>{spaced_tree.map((item) => getJSX(item.seq, item.children))}</ul>;
   return jsx;
 
 }
@@ -1338,7 +1363,7 @@ class App extends React.PureComponent<{}, AppState> {
     while (current_seq.parent_ids != null && current_seq.parent_ids.length > 0) {
       console.log('current_seq: ', current_seq);
       let parent_step = await getStepByID(current_seq.parent_ids.split(' ')[0], app)
-      if (parent_step == null) {
+      if (parent_step as any == 'step not found') {
         break;
       }
       console.log('parent_step: ', parent_step);

@@ -1,5 +1,5 @@
 import string
-from typing import List
+from typing import Dict, List, TypedDict
 import flask
 import json
 from flask import Flask, send_file
@@ -314,7 +314,8 @@ def save_seq():
 @app.route("/delete_step", methods=["POST"])
 def delete_step():
     print("delete_step")
-    data = flask.request.get_json()
+    data : Dict[string:string] = flask.request.get_json()
+    print(data)
     id = data["id"]
     step = Step.query.filter_by(id=id).first()
     db.session.delete(step)
@@ -335,15 +336,17 @@ def delete_sequence():
 @app.route("/get_step", methods=["POST"])
 def get_step():
     data = flask.request.get_json()
-    id = data
+    id = data['id']
     step = Step.query.options(orm.joinedload(Step.options_list)).filter_by(id=id).first()
+    if step is None:
+        return json.dumps('step not found')
     return json.dumps(dataclasses.asdict(step))
 
 @app.route("/get_sequence", methods=["POST"])
 def get_sequence():
     print("get_sequence")
     data = flask.request.get_json()
-    id = data
+    id = data['id']
     sequence = Sequence.query.options(orm.joinedload(Sequence.steps)).filter_by(id=id).first()
     return json.dumps(seq_to_dict(sequence))
 
@@ -432,14 +435,17 @@ def update():
     print("update")
     # get id from request
     data = flask.request.get_json()
-    print(data)
-    if data['which'] == "seq":
-        update_seq_field(data['object'], data['field'])
-    elif data['which'] == "step":
-        update_step_field(data['object'], data['field'])
-    else:
-        update_option_field(data['object'], data['field'])
-    return "saved"
+    try:
+        print(data['object']['name'])
+    finally:
+        print(data)
+        if data['which'] == "seq":
+            update_seq_field(data['object'], data['field'])
+        elif data['which'] == "step":
+            update_step_field(data['object'], data['field'])
+        else:
+            update_option_field(data['object'], data['field'])
+        return "saved"
 
 
 
