@@ -524,7 +524,7 @@ const EditableTextField = (props: {
     </>
   )
 }
-const SeqLog = (props: { seq: Sequence, app: App }): JSX.Element => {
+const SeqLog = (props: { seq: Sequence, app: App, logs?: boolean }): JSX.Element => {
   const { seq, app } = props;
   const steps = seq.steps;
   let text = '';
@@ -541,7 +541,7 @@ const SeqLog = (props: { seq: Sequence, app: App }): JSX.Element => {
 
       <table className='seqlog'>
         <tbody>
-          <SeqInfo {...props} />
+          <SeqInfo {...props} key={seq.id + ' log'} />
           <tr>
             <td className={'log_text'} colSpan={2}>
               {text}
@@ -549,7 +549,7 @@ const SeqLog = (props: { seq: Sequence, app: App }): JSX.Element => {
           </tr>
         </tbody>
         <tfoot>
-          <NotesRow seq={seq} app={app} logs={true} />
+          <NotesRow seq={seq} app={app} logs={true} key={seq.id + ' log'} />
         </tfoot>
       </table>
     </div>
