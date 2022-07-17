@@ -442,10 +442,7 @@ const StepRow = (props: { step: Step, app: App }) => {
     <tr>
       {options_body}
     </tr>
-    <tr>
-      <td className='divider' colSpan={3}>
-      </td>
-    </tr>
+
   </>
   )
 } //TODO
@@ -541,7 +538,7 @@ const SeqLog = (props: { seq: Sequence, app: App, logs?: boolean }): JSX.Element
 
       <table className='seqlog'>
         <tbody>
-          <SeqInfo {...props} key={seq.id + ' log'} />
+          <SeqInfo {...props} key={seq.id + ' log'} in_logs={true} />
           <tr>
             <td className={'log_text'} colSpan={2}>
               {text}
@@ -555,21 +552,23 @@ const SeqLog = (props: { seq: Sequence, app: App, logs?: boolean }): JSX.Element
     </div>
   )
 }
-const SeqInfo = (props: { seq: Sequence, app: App }): JSX.Element => {
-  const { seq, app } = props;
+const SeqInfo = (props: { seq: Sequence, app: App, in_logs?: boolean }): JSX.Element => {
+  const { seq, app, in_logs } = props;
 
   const name = seq.name || "";
   const author = seq.author || "";
 
   const name_props = {
-    key: seq.id + ' name',
-    rows: 1,
-    cols: 15
-  }
-  const capabilities_props = {
-    className: "reasoning",
-    key: seq.id + ' capabilities',
-    rows: 1,
+    field: 'name' as 'name',
+    object: seq as Sequence,
+    which: 'seq' as 'seq',
+    app,
+    other_props: {
+      className: "seqname_edit",
+      id: "seqname_edit",
+      key: seq.id + ' name edit' + in_logs,
+      rows: 1,
+    },
   }
 
 
@@ -596,17 +595,8 @@ const SeqInfo = (props: { seq: Sequence, app: App }): JSX.Element => {
                 onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', true)}
               />
             </label>
-            <label htmlFor="seqname_edit">
-              Seq name:
-              <input type='text'
-                key={seq.id + ' name edit'}
-                className="seqname_edit"
-                id="seqname_edit"
-                value={name}
-                onChange={(e) => app.handleSeqChange(e, e.target.value, seq, 'name', false)}
-                onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'name', true)}
-              />
-            </label>
+            Name:
+            <EditableTextField {...name_props} />
             <button onClick={() => app.hideSeq(seq)}>Hide seq</button>
             <button onClick={() => app.focusSeq(seq)}>Focus</button>
             {/* {save_button}
@@ -705,33 +695,40 @@ const NotesRow = (props: {
     console.log('current tags', current_tags);
   }
 
-  return <tr>
-    <td colSpan={3} className='notes'>
-      Notes:
-      <div className='notes'>
-        {notes_jsx}
-      </div>
-      <div className='tags'>
-        <CreatableSelect
-          options={tag_options}
-          isMulti={true}
-          defaultValue={current_tags}
-          onChange={(selected => app.handleSeqChange(null, selected.map((x) => x.value).join(' '), seq, 'tags', true))}
-          placeholder="Add tags"
-          isClearable={false}
-          key={seq.id + ' tags' + logs}
-        />
-      </div>
-
-      <div className="dataset_log_buttons">
-        {logs ? <></> : <button className="dataset_log_button" onClick={() => app.addNewStep(seq)}>New step</button>}
-      </div>
-      <div className='bottom_name'>
-        {seq.name}
-      </div>
-    </td>
-
-  </tr>
+  return <>
+    <tr>
+      <td className='divider' colSpan={3}>
+      </td>
+    </tr>
+    <tr>
+      <td className="new_step" colSpan={4}>
+        <div className="dataset_log_buttons">
+          {logs ? <></> : <button className="dataset_log_button" onClick={() => app.addNewStep(seq)}>New step</button>}
+        </div>
+      </td>
+    </tr><tr>
+      <td colSpan={3} className='notes'>
+        Notes:
+        <div className='notes'>
+          {notes_jsx}
+        </div>
+        <div className='tags'>
+          <CreatableSelect
+            options={tag_options}
+            isMulti={true}
+            defaultValue={current_tags}
+            onChange={(selected => app.handleSeqChange(null, selected.map((x) => x.value).join(' '), seq, 'tags', true))}
+            placeholder="Add tags"
+            isClearable={false}
+            key={seq.id + ' tags' + logs}
+          />
+        </div>
+        <div className='bottom_name'>
+          Sequence name: {seq.name}
+        </div>
+      </td>
+    </tr>
+  </>
 }
 
 // function DatasetLogs(props: { app: App, seqset_logs: DatasetExample[], browse: boolean, white_space_style: WhitespaceStyle }) {

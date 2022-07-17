@@ -82,6 +82,12 @@ div.tags {
   width: 100%
 }
 
+td.new_step {
+  width: 100%;
+  text-align: center;
+  border: 0px;
+}
+
 div.loading_box {
   min-width: 100%;
   text-align: center;
@@ -99,6 +105,10 @@ td.steprow-cell {
   padding: 3px;
   background-color: #fdfffe;
 
+}
+
+textarea.seqname_edit {
+  min-width: fit-content;
 }
 
 div.seqlog {
@@ -255,6 +265,8 @@ td.seq_info {
 
 div.seq_info {
   width: 70%;
+  display: inline-flex;
+  flex-direction: row;
   align-items: flex-end;
 
 }
@@ -262,7 +274,7 @@ div.seq_info {
 div.timestamp {
   align-self: left;
   display: inline-flex;
-  width: 60%;
+  width: 20%;
 }
 
 table.all_options {
