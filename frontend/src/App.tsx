@@ -311,7 +311,7 @@ const SelectOption = (props: { option: { label: string; value: string; }, app: A
   if (context === 'value' && app.getSeq(option.value) !== undefined) { //TODO: better handle the async here
     return TagLink({ seq: app.getSeq(option.value), app });
   }
-  return <div>
+  return <div className='seq_option'>
     {option.label}
   </div>
 }
@@ -734,6 +734,7 @@ const NotesRow = (props: {
             placeholder="Add tags"
             isClearable={false}
             key={seq.id + ' tags' + logs}
+            formatOptionLabel={(option, { context }) => { return <div className='tag_label'>{option.label}</div> }}
           />
         </div>
         <div className='bottom_name'>
@@ -1188,6 +1189,16 @@ const BulletTree = (props: { app: App }) => {
 
   function getJSX(seq: Sequence, children: any[]): JSX.Element {
     let jsx = <ChildLink app={app} seq={seq} key={Math.random()} />;
+    let tags_jsx = null as React.ReactNode;
+    if (seq.tags != null && seq.tags.length > 0) {
+      tags_jsx = <div className='tags'>
+        {seq.tags.split(' ').map((tag) => { return '#' + tag + '  ' })}
+      </div>
+
+    }
+
+    jsx = <>{jsx} {tags_jsx}</>;
+
     let child_list_jsx = null as React.ReactNode;
 
     if (children.length > 0) {
@@ -1205,7 +1216,10 @@ const BulletTree = (props: { app: App }) => {
   //add a blank element every other item
   let spaced_tree = [] as SeqTree[];
   tree.map(
-    (seq_node) => { spaced_tree.push(seq_node); spaced_tree.push({ seq: { name: '' } as any, children: [] }); return; } ,
+    (seq_node) => {
+      spaced_tree.push(seq_node);
+      spaced_tree.push({ seq: { name: '' } as any, children: [] }); return;
+    } ,
   )
 
   let jsx = <ul>{spaced_tree.map((item) => getJSX(item.seq, item.children))}</ul>;

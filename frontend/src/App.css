@@ -88,6 +88,11 @@ td.new_step {
   border: 0px;
 }
 
+div.seq_option {
+  font-size: small;
+  padding: 1px;
+}
+
 div.loading_box {
   min-width: 100%;
   text-align: center;
@@ -98,6 +103,12 @@ div.loading_box {
 td.divider {
   height: 1px;
   background-color: rgb(170, 179, 174)
+}
+
+div.tag_label {
+  background-color: rgb(236, 228, 228);
+  padding: 10px;
+
 }
 
 td.steprow-cell {
@@ -248,6 +259,10 @@ div.engine {
 
 }
 
+div.tags {
+  font-size: small;
+}
+
 td.seq_info {
   border: 0px solid black;
   border-bottom: #ccc 1px solid;
@@ -269,6 +284,10 @@ div.seq_info {
   flex-direction: row;
   align-items: flex-end;
 
+}
+
+.Select-menu-outer {
+  z-index: 100 !important;
 }
 
 div.timestamp {
