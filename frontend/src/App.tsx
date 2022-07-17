@@ -421,7 +421,14 @@ const StepRow = (props: { step: Step, app: App }) => {
     </tr>
     <tr className='env'>
       <td className='env_act_labels'>
-        Env:
+        <div>
+          <div className='step_pos'>
+            {step.position + 1}
+          </div>
+          <div>
+            Env:
+          </div>
+        </div>
       </td>
       <td className='env'>
         <EditableTextField {...env_props} {...textarea_props} />

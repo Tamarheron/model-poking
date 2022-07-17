@@ -152,11 +152,20 @@ td.env_act_buttons {
   border: 0px;
 }
 
+div.step_pos {
+  font-size: medium;
+  background-color: #70247d;
+  color: white;
+  padding: 5px;
+  margin-right: 5px;
+}
+
 
 
 .env_act_labels {
   width: min-content;
   border: 0px;
+  ;
 }
 
 td.empty {
