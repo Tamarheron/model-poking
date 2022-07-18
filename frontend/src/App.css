@@ -160,6 +160,12 @@ div.step_pos {
   margin-right: 5px;
 }
 
+div.author_tag {
+  font-size: small;
+  color: rgb(179, 53, 99);
+  padding: 5px;
+  margin-right: 5px;
+}
 
 
 .env_act_labels {

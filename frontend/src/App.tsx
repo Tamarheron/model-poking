@@ -394,6 +394,14 @@ const StepRow = (props: { step: Step, app: App }) => {
     },
     field: 'environment' as 'environment',
   }
+  const notes_props = {
+    other_props: {
+      maxRows: 1,
+      className: 'notes',
+      id: `notes_textarea_${step.id}`
+    },
+    field: 'notes' as 'notes',
+  }
   let oal = <OptionsAnswersList {...props} />;
   let options_body = <td colSpan={3} className='all_options'><table className='all_options'>
     <tbody>
@@ -408,6 +416,12 @@ const StepRow = (props: { step: Step, app: App }) => {
           <button onClick={() => app.getAnswers(step)}>Get Logprobs from model </button>
         </td>
       </tr>
+      <tr>
+        <td colSpan={5}>
+          Notes: <EditableTextField {...textarea_props} {...notes_props} />
+        </td>
+      </tr>
+
     </tbody>
 
   </table></td>
@@ -491,6 +505,24 @@ const EditableTextField = (props: {
 ) => {
   const { field, object, which, app } = props;
   let value = (object as any)[field]
+  let onChange: Function = (
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+    val: string,
+    obj: Step,
+    field: keyof Step,
+    push: boolean,
+    resiz: boolean,
+  ) => {
+    let elem = event.target as HTMLTextAreaElement;
+    if (!push) {
+      //set background color
+      elem.style.backgroundColor = '#fff5eb';
+    } else {
+      //set background color to white
+      elem.style.backgroundColor = 'white';
+    }
+  }
+
   let handler: Function = (
     event: React.ChangeEvent<HTMLTextAreaElement>,
     val: string,
@@ -499,7 +531,9 @@ const EditableTextField = (props: {
     push: boolean,
     resiz: boolean,
   ) => {
+    onChange(event, val, obj, field, push, resiz)
     app.handleChange(event, val, obj, field, push, resiz);
+
   }
 
   if (which === 'option') {
@@ -511,6 +545,7 @@ const EditableTextField = (props: {
       push: boolean,
       resiz: boolean,
     ) => {
+      onChange(event, val, obj, field, push, resiz)
       app.handleOptionChange(event, val, obj, field, push, resiz);
     }
   } else if (which === 'seq') {
@@ -522,6 +557,7 @@ const EditableTextField = (props: {
       push: boolean,
       resiz: boolean,
     ) => {
+      onChange(event, val, obj, field, push, resiz)
       app.handleSeqChange(event, val, obj, field, push, resiz);
     }
   }
@@ -1197,8 +1233,11 @@ const BulletTree = (props: { app: App }) => {
   function getJSX(seq: Sequence, children: any[]): JSX.Element {
     let jsx = <ChildLink app={app} seq={seq} key={Math.random()} />;
     let tags_jsx = null as React.ReactNode;
+    if (seq.author) {
+      tags_jsx = <div className='author_tag'>{' ' + seq.author}</div>
+    }
     if (seq.tags != null && seq.tags.length > 0) {
-      tags_jsx = <div className='tags'>
+      tags_jsx = <div className='tags'>{tags_jsx}
         {seq.tags.split(' ').map((tag) => { return '#' + tag + '  ' })}
       </div>
 
