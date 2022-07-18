@@ -572,7 +572,6 @@ const EditableTextField = (props: {
       <TextareaAutosize value={value}
         onChange={(e) => handler(e, e.target.value, object, field, false, true)}
         onBlur={(e) => handler(e, e.target.value, object, field, true, true)}
-        onClick={(e) => handler(e, (e.target as HTMLTextAreaElement).value, object, field, true, true)}
         {...props.other_props} />
     </>
   )
