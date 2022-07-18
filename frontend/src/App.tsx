@@ -1787,7 +1787,7 @@ class App extends React.PureComponent<{}, AppState> {
                 <div>
                   <BulletTree app={this} />
                 </div>
-                {seqlogs}
+                {/* {seqlogs} */}
               </div>
             </>
           }
