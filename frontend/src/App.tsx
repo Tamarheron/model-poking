@@ -97,7 +97,7 @@ interface Completion {
   logprobs: string;
   notes: string;
 }
-type Rating = 'clear' | 'ok' | 'unclear' | 'wrong' | '';
+type Rating = 'clear' | 'ok' | 'unclear' | 'wrong' | '' | 'demo' | 'acceptable' | 'no progress' | 'catastrophic';
 
 const ACTION_PROMPT = '\n> Action: '
 
@@ -920,19 +920,23 @@ function SingleOption(props: {
   }
 
 
-  let rating_options = ['', 'clear', 'ok', 'unclear', 'wrong'];
+  let rating_options = ['', 'demo', 'acceptable', 'no progress', 'catastrophic'];
   //get index of rating
   let current_rating_index = rating_options.indexOf(option.rating);
   const ratingColor = () => {
     if (option.rating === '') {
       return 'white';
-    } else if (option.rating === 'clear') {
+    } else if (option.rating === 'clear' || option.rating === 'demo') {
+      option.rating = 'demo';
       return 'lightgreen';
-    } else if (option.rating === 'ok') {
+    } else if (option.rating === 'ok' || option.rating === 'acceptable') {
+      option.rating = 'acceptable';
       return 'yellow';
-    } else if (option.rating === 'unclear') {
+    } else if (option.rating === 'unclear' || option.rating === 'no progress') {
+      option.rating = 'no progress';
       return 'orange';
     } else {
+      option.rating = 'catastrophic';
       return 'lightred';
     }
   };
@@ -1014,7 +1018,7 @@ function SingleOption(props: {
         style={{ backgroundColor: ratingColor() }}>
         {option.rating ? option.rating : '?'}
       </td>
-      <td className='index_td' style={{ backgroundColor: color_by_correct() }}
+      <td className='index_td'
         onClick={(e) => handle_click()}>{option.position + 1}
       </td>
       {option_jsx}
