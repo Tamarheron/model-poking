@@ -639,17 +639,6 @@ const SeqInfo = (props: { seq: Sequence, app: App, in_logs?: boolean }): JSX.Ele
             {'   ' + new Date(parseInt(seq.timestamp)).toLocaleString()}
           </div>
           <div className='seq_info'>
-            <label htmlFor="author_edit">
-              Author:
-              <input type='text'
-                key={seq.id + ' author edit'}
-                className="author_edit"
-                id="author_edit"
-                value={author}
-                onChange={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', false)}
-                onBlur={(e) => app.handleSeqChange(e, e.target.value, seq, 'author', true)}
-              />
-            </label>
             Name:
             <EditableTextField {...name_props} />
             <button onClick={() => app.hideSeq(seq)}>Hide seq</button>
