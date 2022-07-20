@@ -5,7 +5,12 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+//get enviroment variables from flask server
+
+console.log(window.location.origin);
+
 root.render(
+
   <React.StrictMode>
     <App />
   </React.StrictMode>

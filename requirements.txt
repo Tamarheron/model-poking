@@ -5,3 +5,4 @@ dataclasses
 flask_sqlalchemy
 sqlalchemy
 dataclasses
+flask-httpauth
