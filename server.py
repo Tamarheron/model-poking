@@ -1,4 +1,5 @@
 import string
+from typing import Dict, List, TypedDict
 import flask
 import json
 from flask import Flask, send_file
@@ -8,21 +9,17 @@ import openai
 import time
 import os
 from flask_sqlalchemy import SQLAlchemy
+from psycopg2 import Timestamp
 from sqlalchemy.engine import Connection
 from dataclasses import dataclass
 import dataclasses
-from sqlalchemy import orm
+from sqlalchemy import ForeignKey, orm
+from flask_httpauth import HTTPBasicAuth
+auth = HTTPBasicAuth()
 
 
 app = Flask(__name__, static_url_path="", static_folder="frontend/build")
 
-# database_url = os.getenv("DATABASE_URL")
-# if database_url:
-#     app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
-#         "postgres://", "postgresql://"
-#     )
-# app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or "DEVELOPMENT SECRET KEY"
-# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False  # get rid of warning
 database_url = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url.replace(
     "postgres://", "postgresql://"
@@ -33,70 +30,6 @@ db: SQLAlchemy = SQLAlchemy(app)
 session = db.session
 
 
-@dataclass
-class Option(db.Model):
-    __tablename__ = "option"
-    id: string
-    id = db.Column(db.String, primary_key=True)
-    text: string
-    text = db.Column(db.String)
-    position: int
-    position = db.Column(db.Integer)
-    author: string
-    author = db.Column(db.String)
-    logprob: float
-    logprob = db.Column(db.Float)
-    correct: bool
-    correct = db.Column(db.Boolean)
-    example_id: int
-    example_id = db.Column(db.Integer, db.ForeignKey("dataset_example.time_id"))
-    dataset_example = db.relationship("DatasetExample", back_populates="options_dict")
-    reasoning: string
-    reasoning = db.Column(db.String)
-    rating: string
-    rating = db.Column(db.String)
-
-
-@dataclass
-class DatasetExample(db.Model):
-    __tablename__ = "dataset_example"
-    time_id: int
-    time_id = db.Column(db.Integer, primary_key=True)
-
-    setting: string
-    setting = db.Column(db.String)
-
-    prompt: string
-    prompt = db.Column(db.String)
-
-    interaction: string
-    interaction = db.Column(db.String)
-
-    answer_logprobs: dict
-    answer_logprobs = db.Column(db.JSON)
-
-    options_dict = db.relationship("Option", back_populates="dataset_example")
-
-    engine: string
-    engine = db.Column(db.String)
-
-    author: string
-    author = db.Column(db.String)
-
-    show: bool
-    show = db.Column(db.Boolean)
-
-    star: bool
-    star = db.Column(db.Boolean)
-
-    notes: string
-    notes = db.Column(db.String)
-
-    completion: string
-    completion = db.Column(db.String)
-
-    main: bool
-    main = db.Column(db.Boolean)
 
 
 @dataclass
@@ -128,68 +61,143 @@ class Completion(db.Model):
 
     notes: string
     notes = db.Column(db.String)
+@dataclass
+class Test(db.Model):
+    id: int
+    id = db.Column(db.Integer, primary_key=True)
+    text: string
+    text = db.Column(db.String)
+@dataclass
+class NewOption(db.Model):
+    id: string
+    id = db.Column(db.String, primary_key=True)
+
+    text: string
+    text = db.Column(db.String)
+    
+    position: int
+    position = db.Column(db.Integer)
+    
+    author: string
+    author = db.Column(db.String)
+    
+    logprob: float
+    logprob = db.Column(db.Float)
+    
+    correct: bool
+    correct = db.Column(db.Boolean)
+    
+    step_id: string
+    step_id = db.Column(db.String, db.ForeignKey("step.id"))
+    step = db.relationship("Step", back_populates="options_list",lazy=False)
+    
+    reasoning: string
+    reasoning = db.Column(db.String)
+    
+    rating: string
+    rating = db.Column(db.String)
+    
+    selected: bool
+    selected = db.Column(db.Boolean)
+    
+    sequence_id: string
+    sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
+    
+    timestamp:string
+    timestamp = db.Column(db.String)
+    
+    engine: string
+    engine = db.Column(db.String)
+
+@dataclass
+class Tag(db.Model):
+    text: string
+    text = db.Column(db.String, primary_key=True)
+
+
+    
+# tags = db.Table('tags',
+#     db.Column('tag_id', db.String, db.ForeignKey('tag.text'), primary_key=True),
+#     db.Column('sequence_id', db.String, db.ForeignKey('sequence.id'), primary_key=True)
+# )
+@dataclass
+class Sequence(db.Model):
+    __tablename__ = "sequence"
+    setting: string
+    setting = db.Column(db.String)
+    
+    # step_ids = db.Column(db.ARRAY(db.String, db.ForeignKey("step.id"))
+    steps = db.relationship("Step", back_populates="sequence", uselist=True, lazy=False)
+    
+    id: string
+    id = db.Column(db.String, primary_key=True)
+    
+    author: string
+    author = db.Column(db.String)
+    
+    notes: string
+    notes = db.Column(db.String)
+    
+    show: bool
+    show = db.Column(db.Boolean)
+    
+    starred : bool
+    starred = db.Column(db.Boolean)
+    
+    success:string
+    success = db.Column(db.String)
+    
+    timestamp:string
+    timestamp = db.Column(db.String)
+    
+    name:string
+    name = db.Column(db.String)
+
+    parent_ids: string
+    parent_ids = db.Column(db.String)
+
+    # tags = db.relationship("Tag", secondary=tags, lazy='False', back_populates="sequences")
+    tags: string
+    tags = db.Column(db.String)
+
+@dataclass
+class Step(db.Model):
+    __tablename__ = "step"
+    id: string
+    id = db.Column(db.String, primary_key=True)
+
+    sequence_id: string
+    sequence_id = db.Column(db.String, db.ForeignKey("sequence.id"))
+    sequence = db.relationship("Sequence",  foreign_keys=[sequence_id])
+    
+    position: int
+    position = db.Column(db.Integer)
+    
+    environment: string
+    environment = db.Column(db.String)
+    
+    options_list = db.relationship("NewOption", back_populates="step", lazy="joined", uselist=True)
+    
+    notes: string
+    notes = db.Column(db.String)
+    
+    children_ids: string
+    children_ids = db.Column(db.String)
+
+    logprob_engine: string
+    logprob_engine = db.Column(db.String)
+    
+    author: string
+    author = db.Column(db.String)
+    
+    timestamp:string
+    timestamp = db.Column(db.String)
+
+
 
 
 def get_database_connection() -> Connection:
     return db.session.connection()
-
-
-def make_options_dict(item):
-    for _, v in item["options_dict"].items():
-        v["id"] = v["text"] + str(item["time_id"])
-        v["example_id"] = item["time_id"]
-        v["logprob"] = -100
-
-
-def add_logprobs(item):
-    for _, v in item["options_dict"].items():
-        logprob = item["answer_logprobs"].get(f" {v['position']+1}", "None")
-        v["logprob"] = -100.0 if logprob == "None" else float(logprob)
-
-
-# def update_options_dict(item):
-#     current = item["options_dict"]
-#     item["options_dict"] = []
-#     for i, text in enumerate(current.keys()):
-#         d = current.get(text)
-#         d["position"] = i
-#         d["example_id"] = item["time_id"]
-#         d["text"] = text
-#         d["logprob"] = -100.0 if d["logprob"] == "None" else float(d["logprob"])
-#         d["id"] = text + str(item["time_id"])
-#         # print(d["author"])
-#         # d["author"] = d["author"]
-#         item["options_dict"].append(Option(**d))
-
-
-def file_to_db(filename):
-    with open(filename, "r") as f:
-        data = f.readlines()
-    for line in data:
-        item = json.loads(line)
-        update_options_dict(item)
-        if filename[-11:] == "dataset.txt":
-            item["show"] = True
-        item.pop("options")
-        if item.get("correct_options"):
-            item.pop("correct_options")
-
-        # check if already in db
-        if not DatasetExample.query.filter_by(time_id=item["time_id"]).first():
-            db.session.add(DatasetExample(**item))
-            db.session.commit()
-
-
-def update_all_show():
-    for example in DatasetExample.query.all():
-        example.show = True
-        db.session.commit()
-
-
-def update_all_main():
-    for example in DatasetExample.query.all():
-        example.main = True
-        db.session.commit()
 
 
 @app.route("/submit_prompt", methods=["POST"])
@@ -212,28 +220,17 @@ def submit_prompt():
     )
     print("getting completion from openai, engine: " + engine)
     completion = response.choices[0].text
-    logprobs = response.choices[0].logprobs
-    print("completion: " + completion)
 
-    data["prompt"] = prompt
-    data["completion"] = completion
-    data["logprobs"] = json.dumps(logprobs)
-    data["time_id"] = int(time.time())
-    data.pop("text")
-
-    db.session.add(Completion(**data))
-    db.session.commit()
-
-    return flask.jsonify(data)
+    return flask.jsonify({'completion':completion})
 
 
-@app.route("/get_action_options", methods=["POST"])
+@app.route("/get_options", methods=["POST"])
 def get_action_options():
     print("get_action_options")
     # get json from request
     data = flask.request.get_json()
     print(data)
-    prompt = data["text"] + "\n> Action:"
+    prompt = data["prompt"]
     data["temp"] = float(data["temp"])
     n = int(data["n"])
     engine = data["engine"]
@@ -247,26 +244,35 @@ def get_action_options():
         max_tokens=100,
     )
     print("getting completion from openai, engine: " + engine)
+    print('prompt: ' + prompt)
+
     completions = [choice.text for choice in response.choices]
     # remove duplicates
     completions = list(set(completions))
-
+    #remove blank
+    completions = [c for c in completions if c != ""]
     print("completion: ", completions)
-    text = data["text"] + "\nOptions:"
-    for i, completion in enumerate(completions):
-        text += f"\n{i+1}){completion}"
-    print(len(text))
-    return json.dumps({"text": text})
+    return json.dumps({"option_texts": completions})
 
+users = {
+    'user': 'alignment'
+}
+@auth.verify_password
+def verify_password(username, password):
+    if username in users and users[username] == password:
+        return username
 
 @app.route("/")
+@auth.login_required
 def model_poking():
     return send_file(__file__[:-9] + "frontend/build/index.html")
 
 
-@app.route("/submit_options", methods=["POST"])
-def get_answer():
-    print("submit_options")
+
+
+@app.route("/get_logprobs", methods=["POST"])
+def get_logprobs():
+    print("get_logprobs")
     # get json from request
     data = flask.request.get_json()
     print(data)
@@ -282,153 +288,250 @@ def get_answer():
     )
     print(response.choices[0])
     logprobs = response.choices[0].logprobs.top_logprobs
-
     answer_logprobs = logprobs[0]
-    data["answer_logprobs"] = answer_logprobs
-    data["completion"] = str(response.choices[0].text)
-    add_logprobs(data)
-    print(data["options_dict"])
 
-    stmt = (
-        db.session.query(DatasetExample)
-        .filter(DatasetExample.time_id == data["time_id"])
-        .first()
-    )
-    stmt.answer_logprobs = data["answer_logprobs"]
-    stmt.completion = data["completion"]
-
-    db.session.commit()
-
-    for option in data["options_dict"].values():
-        print(option)
-        stmt = db.session.query(Option).filter(Option.id == option["id"]).first()
-        stmt.logprob = option["logprob"]
-        # print(stmt)
-        db.session.commit()
 
     return json.dumps(
-        {
-            "options_dict": data["options_dict"],
-            "answer_logprobs": data["answer_logprobs"],
-            "completion": data["completion"],
-        }
+        {"answer_logprobs": answer_logprobs} 
     )
 
 
-@app.route("/save_example", methods=["POST"])
-def save_example():
-    print("save_example")
-    # get json from request
+@app.route("/save_seq", methods=["POST"])
+def save_seq():
+    print("save_seq")
     data = flask.request.get_json()
-    data["time_id"] = str(int(time.time()))
-    data["show"] = True
-    data["main"] = True
-    data["notes"] = ""
-    make_options_dict(data)
-    print(data["options_dict"])
-    tmp_options_dict = data["options_dict"]
-    data["options_dict"] = [Option(**d) for d in tmp_options_dict.values()]
+    step_objs = []
+    for step in data["steps"]:
+        step_objs.append(update_step(step))
+        print("added steps " + step['id'])
+    data['steps'] = step_objs
+    sequence = Sequence(**data)
+    print("made sequence ", sequence)
+    db.session.add(sequence)
+    db.session.commit()
+    return 'saved'
 
-    print(db.session)
-    db.session.add(DatasetExample(**data))
+@app.route("/delete_step", methods=["POST"])
+def delete_step():
+    print("delete_step")
+    data : Dict[string:string] = flask.request.get_json()
+    print(data)
+    id = data["id"]
+    step = Step.query.filter_by(id=id).first()
+    db.session.delete(step)
+    db.session.commit()
+    return 'deleted'
+
+@app.route("/delete_sequence", methods=["POST"])
+def delete_sequence():
+    print("delete_sequence")
+    data = flask.request.get_json()
+    id = data["id"]
+    sequence = Sequence.query.filter_by(id=id).first()
+    db.session.delete(sequence)
+    db.session.commit()
+    return 'deleted'
+
+
+@app.route("/get_step", methods=["POST"])
+def get_step():
+    data = flask.request.get_json()
+    id = data['id']
+    step = Step.query.options(orm.joinedload(Step.options_list)).filter_by(id=id).first()
+    if step is None:
+        return json.dumps('step not found')
+    return json.dumps(dataclasses.asdict(step))
+
+@app.route("/get_sequence", methods=["POST"])
+def get_sequence():
+    print("get_sequence")
+    data = flask.request.get_json()
+    id = data['id']
+    sequence = Sequence.query.options(orm.joinedload(Sequence.steps)).filter_by(id=id).first()
+    return json.dumps(seq_to_dict(sequence))
+
+def update_option(option:NewOption):
+    option_obj = db.session.query(NewOption).filter_by(id=option['id']).first()
+    if option_obj is None:
+        option_obj = NewOption(**option)
+        db.session.add(option_obj)
+    else:
+        #update option
+        for key, value in option.items():
+            setattr(option_obj, key, value)
+    return option_obj
+
+def update_step(step:Step):
+    options_list = []
+    for option in step['options_list']:
+        option_obj = update_option(option)
+        options_list.append(option_obj)
+    step['options_list'] = options_list
+
+    step_obj = db.session.query(Step).filter_by(id=step['id']).first()
+    if step_obj is None:
+        step_obj = Step(**step)
+        db.session.add(step_obj)
+    else:
+        #update step
+        for key, value in step.items():
+            setattr(step_obj, key, value)
+    return step_obj
+
+def update_seq_field(object, field):
+    print("update_seq")
+    seq = db.session.query(Sequence).filter_by(id=object['id']).first()
+    value = object[field]
+    if field == 'steps':
+        steps=[]
+        for step in value:
+            step_obj = update_step(step)
+            steps.append(step_obj)
+        value=steps
+    #update fields
+    print("updating seq", object, field,)
+    print(object[field])
+    setattr(seq, field, value)
     db.session.commit()
 
-    # convert options_dict (now list of type Option) back to dict
-    data["options_dict"] = {
-        option.id: dataclasses.asdict(option) for option in data["options_dict"]
-    }
+def update_step_field(object, field):
+    step = db.session.query(Step).filter_by(id=object['id']).first()
+    value = object[field]
+    if field == 'options_list':
+        new_options = []
+        for option in value:
+            option_obj = update_option(option)
+            new_options.append(option_obj)
+        value = new_options
+        #delete old options
+        for option in step.options_list:
+            if option not in new_options:
+                print("deleting option", option)
+                db.session.delete(option)
 
-    return json.dumps(data)
+    print("updating step", object, field,)
+    print(type(value))
+    print(step)
+    setattr(step, field, value)
+    db.session.commit()
+
+def update_option_field(object, field):
+    print("update_option", object['id'])
+    option = update_option(object)
+    print("updating option", object, field, option)
+    print(option)
+    if field == 'text' and object['text'] == '':
+        print("deleting option"+'\n\n*******')
+        db.session.delete(option)
+    else:
+        value = object[field]
+        setattr(option, field, value)
+    db.session.commit()
+    return
 
 
-@app.route("/update_dataset_log", methods=["POST"])
-def update_dataset_log():
-    print("update_dataset_log")
+@app.route("/update", methods=["POST"])
+def update():
+    print("update")
     # get id from request
     data = flask.request.get_json()
-    print(data)
-
-    stmt = (
-        db.session.query(DatasetExample)
-        .filter(DatasetExample.time_id == data["time_id"])
-        .first()
-    )
-    stmt.options = data["options_dict"]
-    stmt.notes = data.get("notes")
-    stmt.show = data.get("show", True)
-    stmt.star = data.get("star", False)
-    stmt.main = data.get("main", True)
-    stmt.author = data["author"]
-    stmt.interaction = data["interaction"]
-
-    db.session.commit()
-
-    # update options table also
-    for option in data["options_dict"].values():
-        print(option)
-        stmt = db.session.query(Option).filter(Option.id == option["id"]).first()
-
-        stmt.correct = option["correct"]
-        stmt.logprob = option["logprob"]
-        stmt.author = option.get("author", "")
-        stmt.reasoning = option.get("reasoning", "")
-        stmt.rating = option.get("rating", "")
-        stmt.text = option["text"]
-        # print(stmt)
-        db.session.commit()
-
-    return "saved"
+    try:
+        print(data['object']['name'])
+    finally:
+        print(data)
+        if data['which'] == "seq":
+            update_seq_field(data['object'], data['field'])
+        elif data['which'] == "step":
+            update_step_field(data['object'], data['field'])
+        else:
+            update_option_field(data['object'], data['field'])
+        return "saved"
 
 
-@app.route("/get_dataset_logs")
-def get_dataset_logs():
-    print("get_dataset_logs")
+
+@app.route("/get_sequence_logs")
+def get_sequence_logs():
+    print("get_sequence_logs")
     start_time = time.time()
     n = flask.request.args.get("n", 15)
     stmt = (
-        db.session.query(DatasetExample)
-        .options(orm.joinedload(DatasetExample.options_dict))
-        .filter(DatasetExample.show == True)
+        db.session.query(Sequence)
+        .options(orm.joinedload(Sequence.steps))
+        .filter(Sequence.show == True)
         .all()
     )
     print("finished db query, took time: ", time.time() - start_time)
     start_time = time.time()
-    print(stmt[0].options_dict)
-    print(stmt[-1].options_dict)
-    print(stmt[1].options_dict)
-
-    dict_list = [to_dict(x) for x in stmt]
-    dict_list = sorted(dict_list, key=lambda x: x["time_id"])
+    dict_list = [seq_to_dict(x) for x in stmt]
+    dict_list = sorted(dict_list, key=lambda x: x["id"])
     dict_list = dict_list[-int(n) :]
-    # if app.debug:
-    #     dict_list = dict_list[-3:]
 
-    print("finished get_dataset_logs, took: ", time.time() - start_time)
+    print("finished get_sequence_logs, took: ", time.time() - start_time)
 
-    # print(dict_list[1])
+    # print(f'dict_list: {dict_list}')
     return json.dumps(dict_list)
 
-
-@app.route("/get_logs")
-def get_logs():
-    print("get_logs")
+@app.route("/get_step_logs")
+def get_step_logs():
+    print("get_step_logs")
     start_time = time.time()
-    stmt = db.session.query(Completion).all()
-    stmt = stmt[:10]
-    dict_list = [dataclasses.asdict(x) for x in stmt]
-    print("finished getting logs, took: ", time.time() - start_time)
-    # print(dict_list[1])
+    n = flask.request.args.get("n", 15)
+    stmt = (
+        db.session.query(Step)
+        .options(orm.joinedload(Step.options_list))
+        .filter()
+        .all()
+    )
+    print("finished db query, took time: ", time.time() - start_time)
+    start_time = time.time()
+    dict_list = [step_to_dict(x) for x in stmt]
+    dict_list = dict_list[-int(n) :]
+
+    print("finished get_step_logs, took: ", time.time() - start_time)
+
+    # print(f'dict_list: {dict_list}')
     return json.dumps(dict_list)
 
 
-def to_dict(example):
-    d = dataclasses.asdict(example)
-    if d["notes"] == None:
-        d["notes"] = ""
-    d["options_dict"] = {
-        option.id: dataclasses.asdict(option) for option in example.options_dict
-    }
+@app.route("/get_tags")
+def get_tags():
+    print("get_tags")
+    start_time = time.time()
+    stmt = (
+        db.session.query(Tag)
+        .filter()
+        .all()
+    )
+    tags = [x.text for x in stmt]
+    tags.sort()
+    print("finished db query, took time: ", time.time() - start_time)
+    start_time = time.time()
+    print("finished get_tags, took: ", time.time() - start_time)
+    print(tags)
+    # print(f'dict_list: {dict_list}')
+    return json.dumps(tags)
 
+#add tag
+@app.route("/add_tag", methods=["POST"])
+def add_tag():
+    print("add_tag")
+    data = flask.request.get_json()
+    tag = Tag(text=data['tag'])
+    db.session.add(tag)
+    db.session.commit()
+    return "saved"
+
+
+
+def step_to_dict(step):
+    d = dataclasses.asdict(step)
+    d["options_list"] = [ dataclasses.asdict(option) for option in step.options_list
+    ]
+    return d
+
+def seq_to_dict(example):
+    d = dataclasses.asdict(example)
+    d['steps'] = [step_to_dict(x) for x in example.steps]
     return d
 
 
@@ -442,12 +545,6 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=5003)
     args = parser.parse_args()
     port = args.port
-    if args.file_to_db:
-        file_to_db("dataset.txt")
-        exit()
-    if args.update_all_show:
-        update_all_show()
-        exit()
     if args.debug:
         app.debug = True
 
@@ -457,5 +554,4 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0" if args.public else "127.0.0.1",
         port=int(os.getenv("PORT", "5000")),
-        threaded=True,
     )
